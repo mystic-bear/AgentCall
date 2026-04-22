@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Host Skill Decision Output",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "agent",
+    "selected_agent",
+    "selected_cli",
+    "delegation_depth",
+    "writes_enabled",
+    "context_files",
+    "status"
+  ],
+  "properties": {
+    "schema_version": { "type": "string" },
+    "agent": { "const": "host-skill" },
+    "selected_agent": { "type": "string" },
+    "selected_cli": { "type": "string" },
+    "delegation_depth": { "type": "integer", "minimum": 0, "maximum": 1 },
+    "writes_enabled": { "type": "boolean" },
+    "context_files": { "type": "array" },
+    "status": { "enum": ["ok", "blocked"] }
+  },
+  "additionalProperties": true
+}

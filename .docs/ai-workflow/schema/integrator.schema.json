@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Integrator Output",
+  "type": "object",
+  "required": ["patch_plan"],
+  "properties": {
+    "patch_plan": {
+      "type": "array"
+    }
+  },
+  "additionalProperties": true
+}
