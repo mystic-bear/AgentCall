@@ -63,7 +63,7 @@ else
   FAILURES=$((FAILURES + 1))
 fi
 
-if rg -q -- '--prompt-file "\$PROMPT_FILE"|--prompt-file \$PROMPT_FILE' "$ROOT_DIR/scripts/adapters/codex.sh"; then
+if grep -qE -- '--prompt-file "?\$PROMPT_FILE"?' "$ROOT_DIR/scripts/adapters/codex.sh"; then
   echo "OK   codex adapter delegates prompt files without argv expansion"
 else
   echo "FAIL codex adapter still appears to inline prompt content"

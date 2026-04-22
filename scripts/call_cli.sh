@@ -118,7 +118,9 @@ has_secrets() {
   local base
   base="$(basename "$file")"
   case "$base" in
+    # Allowlist first: template/sample env files are safe to include as context.
     .env.example|.env.sample|.env.template|*.example.env|*.sample.env|*.template.env) ;;
+    # Deny actual env files, key material, and conventionally sensitive filenames.
     .env|*.pem|*.key|id_rsa|id_ed25519|secrets.*) return 0 ;;
     .env.*) return 0 ;;
   esac

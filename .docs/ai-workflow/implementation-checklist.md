@@ -73,6 +73,7 @@
 - 완료: wrapper/process에 저오버헤드 정책 반영. `review/design`은 text-first, strict schema는 opt-in, `test-hello`/`design-synthesizer`만 기본 strict 유지
 - 완료: dry-run/debug 로그와 production 로그 분리. wrapper 기본 사용을 `--execute` 중심으로 전환하고 기존 혼합 로그를 `production/debug/legacy-wrapper.log`로 정리
 - 완료: review-driven hardening round. `requires-human-gate` 실행 enforcement, `timeout-sec`/`output-schema` 해석, Codex prompt-file transport, secret scan 확장, canonical context logging 반영
+- 완료: follow-up polish round. role schema `allOf` 일관화, Codex test portability 개선, gate semantics 문서화, Gemini read-only live smoke 확인
 - 남음: 브라우저 수준 자동화 테스트는 아직 없음. 현재는 로직 테스트 + 정적서버 smoke 수준 검증까지 완료
 
 ## Update Log
@@ -86,3 +87,4 @@
 - 2026-04-22 14:31 +09:00: `call_cli.sh`에 text-first response contract와 `--strict-schema` opt-in 반영. agent frontmatter/본문 수정 및 `response_contract_checks.sh` 추가, 검증 통과.
 - 2026-04-22 15:31 +09:00: `call_cli.sh` 기본 모드를 execute로 전환하고 dry-run은 debug bucket으로 분리. 기존 로그도 `logs/production`, `logs/debug`, `legacy-wrapper.log` 구조로 재정리.
 - 2026-04-22 17:35 +09:00: review-driven hardening 반영. secret scan, gate enforcement, timeout/schema enforcement, prompt transport, validation/docs 보강 완료.
+- 2026-04-22 18:05 +09:00: 후속 보완 반영. schema composition 일관화, 테스트 이식성 수정, gate 의미 문서화, Gemini `--approval-mode plan` 실환경 smoke 성공.

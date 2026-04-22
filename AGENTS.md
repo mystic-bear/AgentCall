@@ -28,6 +28,12 @@ Strict schema resolution:
 5. role-derived defaults for `design-synthesizer` and `test-hello`
 6. otherwise `false`
 
+Gate resolution:
+
+- Gate rank is `none/0 < A < B < C < S`.
+- `S` means skill validation readiness; `A/B/C` are lifecycle approval stages.
+- The wrapper currently uses this single ordered scale for `requires-human-gate` checks.
+
 Local pilot intent:
 
 - Prove the structure works inside one project first.

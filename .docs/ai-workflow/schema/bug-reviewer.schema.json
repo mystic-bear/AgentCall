@@ -1,12 +1,17 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Bug Reviewer Output",
-  "type": "object",
-  "required": ["findings"],
-  "properties": {
-    "findings": {
-      "type": "array"
+  "allOf": [
+    { "$ref": "common.schema.json" },
+    {
+      "type": "object",
+      "required": ["findings"],
+      "properties": {
+        "findings": {
+          "type": "array"
+        }
+      },
+      "additionalProperties": true
     }
-  },
-  "additionalProperties": true
+  ]
 }
