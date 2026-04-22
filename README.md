@@ -2,32 +2,245 @@
 
 프로젝트 로컬 전용 AI CLI delegation 파일럿입니다.
 
-## Core Paths
+이 저장소는 `Claude`, `Gemini`, `Codex` 같은 외부 CLI를 **전역 설치형 skill이 아니라, 특정 프로젝트 안에서만** 호출하고 관리하는 구조를 검증하기 위해 만들었습니다.
+
+핵심 목표는 두 가지입니다.
+
+- 다른 AI CLI를 bounded role 단위로 호출할 수 있는지 검증
+- 실제 운영 시 오버헤드를 줄일 수 있는 구조로 정리
+
+## What This Repo Does
+
+이 저장소는 아래 역할을 합니다.
+
+- agent 역할 정의를 `.agents/*.md`로 관리
+- 실제 호출은 `scripts/call_cli.sh` 한 곳으로 통일
+- 상태, 스키마, 체크리스트, 테스트 케이스를 `.docs/ai-workflow/`에 보관
+- dry-run/debug 로그와 실제 작업 로그를 분리
+- 모델 기본값, response contract, guard rule을 프로젝트 내부에서만 고정
+
+즉, “프로젝트 바깥 전역 설정 없이도 로컬에서 delegation pilot를 굴릴 수 있는가”를 보여주는 저장소입니다.
+
+## Repository Layout
+
+주요 구조는 이렇습니다.
 
 - `AGENTS.md`
+  - 이 저장소에서 지켜야 할 운영 규칙
 - `.agents/`
+  - 역할별 agent 정의
 - `scripts/`
+  - wrapper, adapter, validation, gate check
 - `.docs/ai-workflow/`
+  - 상태 파일, 체크리스트, 스키마, 테스트 케이스, 운영 문서
+- `local-skills/subagent-host/`
+  - project-local host skill 문서
 - `tests/`
+  - wrapper/contract/model/logging 검증 스크립트
 
-## Quick Checks
+## Agent Roles
+
+현재 기본 agent는 다음과 같습니다.
+
+- `architect`
+  - 구조 제안, 가정, 리스크 정리
+- `frontend-designer`
+  - UI/UX/비주얼 피드백
+- `bug-reviewer`
+  - 결함/회귀/테스트 누락 리뷰
+- `integrator`
+  - 통합 순서와 적용 계획 정리
+- `design-synthesizer`
+  - 여러 입력을 하나의 최종안으로 합성
+- `test-hello`
+  - smoke test용 최소 agent
+
+## Wrapper Behavior
+
+모든 외부 호출은 `scripts/call_cli.sh`로만 수행합니다.
+
+주요 동작 원칙:
+
+- 일반 사용은 `--execute`
+- `--dry-run`은 wrapper 점검/디버그용
+- review/design 계열은 기본적으로 **text-first**
+- strict schema는 **opt-in**
+- smoke/synthesis 계열만 기본적으로 strict schema 유지
+
+모델 해석 순서:
+
+1. `--model`
+2. agent frontmatter의 `model:`
+3. `.docs/ai-workflow/model-defaults.env`
+
+## Logs
+
+로그는 두 갈래로 분리됩니다.
+
+- `.docs/ai-workflow/logs/production/`
+  - 실제 작업용 실행 로그
+  - 보통 `body.txt`가 있는 세션
+- `.docs/ai-workflow/logs/debug/`
+  - dry-run, wrapper 테스트, 임시 검증 로그
+
+추가로:
+
+- `.docs/ai-workflow/logs/legacy-wrapper.log`
+  - 분리 정책 이전의 과거 wrapper 로그
+
+정리 기준은 단순합니다.
+
+- 결과물을 보려면 `production/`
+- 테스트 흔적을 보려면 `debug/`
+
+## Dry Run vs Execute
+
+`--dry-run`은 실제 AI를 호출하지 않습니다.
+
+하는 일:
+
+- agent 선택
+- 모델 선택
+- context 파일 수집
+- prompt 생성
+- guard rule 검사
+- `host-skill-decision.json` 생성
+
+하지 않는 일:
+
+- 실제 CLI 호출
+- 응답 수신
+- `body.txt` 생성
+
+반대로 `--execute`는 실제 호출까지 수행합니다.
+
+예시:
+
+```bash
+./scripts/call_cli.sh \
+  --agent .agents/bug-reviewer.md \
+  --prompt "Review this change for real bugs only." \
+  --execute
+```
+
+```bash
+./scripts/call_cli.sh \
+  --agent .agents/bug-reviewer.md \
+  --prompt "Wrapper contract check" \
+  --dry-run
+```
+
+## Quick Start
+
+먼저 기본 검증:
 
 ```bash
 ./scripts/validate_skill.sh
 ```
 
+response contract 점검:
+
 ```bash
 bash ./tests/response_contract_checks.sh
 ```
+
+모델 선택 규칙 점검:
 
 ```bash
 bash ./tests/model_selection_checks.sh
 ```
 
-## Notes
+dry-run이 debug bucket으로 들어가는지 점검:
 
-- review/design 계열 agent는 기본적으로 text-first 응답을 사용합니다.
-- strict schema는 opt-in이며, smoke/synthesis 계열만 기본적으로 strict를 유지합니다.
-- 일반 사용은 `--execute` 기준입니다.
-- `--dry-run`은 wrapper 점검용이며 로그는 `logs/debug/`로 분리됩니다.
-- 실제 작업 로그는 `logs/production/` 아래에 남습니다.
+```bash
+bash ./tests/log_bucket_checks.sh
+```
+
+## Common Commands
+
+`architect` 호출:
+
+```bash
+./scripts/call_cli.sh \
+  --agent .agents/architect.md \
+  --prompt "Propose a minimal architecture for this workflow." \
+  --execute
+```
+
+`bug-reviewer` 호출:
+
+```bash
+./scripts/call_cli.sh \
+  --agent .agents/bug-reviewer.md \
+  --prompt "Review only for meaningful bugs and test gaps." \
+  --execute
+```
+
+strict schema가 꼭 필요할 때:
+
+```bash
+./scripts/call_cli.sh \
+  --agent .agents/bug-reviewer.md \
+  --prompt "Return a strictly structured review." \
+  --strict-schema \
+  --execute
+```
+
+Codex local runtime 경로 확인:
+
+```bash
+./scripts/local_codex.sh path
+```
+
+프로젝트 로컬 Codex 로그인:
+
+```bash
+./scripts/local_codex.sh login
+```
+
+## Validation and Safety
+
+이 저장소는 아래 guard를 포함합니다.
+
+- recursion 차단
+- secrets-bearing file 차단
+- context file 수/크기 제한
+- project root 바깥 경로 차단
+- 역할별 response contract 제어
+
+즉, “아무거나 바로 던지는 wrapper”가 아니라 최소한의 운영 제약을 둔 파일럿입니다.
+
+## Documentation
+
+주요 운영 문서는 여기 있습니다.
+
+- `.docs/ai-workflow/state.md`
+  - 현재 phase, owner, next action
+- `.docs/ai-workflow/implementation-checklist.md`
+  - 구현 상태 추적
+- `.docs/ai-workflow/overhead-reduction-review.md`
+  - 오버헤드 절감 운영안
+- `.docs/ai-workflow/test-cases/`
+  - smoke test, gate report, 설계/리뷰 사이클 기록
+
+## What Is Not Committed
+
+보안과 잡음 문제 때문에 아래는 git에서 제외합니다.
+
+- `.docs/ai-workflow/logs/`
+- `.local-runtime/`
+
+즉, 저장소에는 구조와 문서와 테스트만 올라가고, 실행 로그나 로컬 인증 상태는 올라가지 않습니다.
+
+## Current Operating Model
+
+현재 권장 운영 방식은 이렇습니다.
+
+- 단순수정은 delegation하지 않음
+- 리뷰는 명시적으로 필요할 때만 호출
+- reviewer 간 합의 단계는 두지 않음
+- 최종 반영 판단은 Codex가 수행
+- 일반 호출은 `--execute`
+- dry-run은 wrapper/debug 확인용으로만 사용
+
+이 방향은 초기 파일럿에서 확인된 오버헤드를 줄이기 위해 정리된 현재 기본 정책입니다.
