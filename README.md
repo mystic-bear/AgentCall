@@ -1,8 +1,8 @@
 # AgentCall
 
-프로젝트 로컬 전용 AI CLI delegation 파일럿입니다.
+프로젝트 로컬에서 먼저 검증한 뒤 전역 확장으로 이어가기 위한 AI CLI delegation 기반입니다.
 
-이 저장소는 `Claude`, `Gemini`, `Codex` 같은 외부 CLI를 **전역 설치형 skill이 아니라, 특정 프로젝트 안에서만** 호출하고 관리하는 구조를 검증하기 위해 만들었습니다.
+이 저장소는 `Claude`, `Gemini`, `Codex` 같은 외부 CLI를 **특정 프로젝트 안에서 먼저 안정화**하고, 이후 더 넓은 범위로 확장할 수 있는 형태로 정리하기 위해 만들었습니다.
 
 핵심 목표는 두 가지입니다.
 
@@ -19,7 +19,7 @@
 - dry-run/debug 로그와 실제 작업 로그를 분리
 - 모델 기본값, response contract, guard rule을 프로젝트 내부에서만 고정
 
-즉, “프로젝트 바깥 전역 설정 없이도 로컬에서 delegation pilot를 굴릴 수 있는가”를 보여주는 저장소입니다.
+즉, “프로젝트 안에서 먼저 안정화한 구조를 전역 확장 가능한 형태로 준비한다”는 목적의 저장소입니다.
 
 ## Repository Layout
 
@@ -72,6 +72,19 @@
 1. `--model`
 2. agent frontmatter의 `model:`
 3. `.docs/ai-workflow/model-defaults.env`
+
+## Compatibility Direction
+
+다음 핵심 목표는 **기존 agent md를 교체하지 않고, 안 깨지게 이어서 쓸 수 있는 호환 레이어**를 준비하는 것입니다.
+
+의도는 이렇습니다.
+
+- 기존 `.md` 자산을 전면 교체하지 않음
+- 필요한 메타데이터만 비파괴적으로 추가
+- 기존 frontmatter가 없어도 가능한 범위에서 자동 추론
+- 새 wrapper 규칙과 구 agent 문서를 함께 수용할 수 있게 확장
+
+즉, 다음 단계의 핵심은 “새 포맷으로 갈아타기”가 아니라 **기존 agent 문서를 그대로 살리면서 연결하는 것**입니다.
 
 ## Logs
 
@@ -242,5 +255,7 @@ Codex local runtime 경로 확인:
 - 최종 반영 판단은 Codex가 수행
 - 일반 호출은 `--execute`
 - dry-run은 wrapper/debug 확인용으로만 사용
+
+현재 기준으로는 구조 검증 자체는 거의 성공한 상태로 보고 있고, 다음 준비 항목은 `기존 agent md 호환 확장`이 가장 중요합니다.
 
 이 방향은 초기 파일럿에서 확인된 오버헤드를 줄이기 위해 정리된 현재 기본 정책입니다.

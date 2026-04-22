@@ -1,6 +1,6 @@
-# Project-Local Subagent Pilot
+# Project-Local First, Global-Ready AgentCall
 
-This repository contains a **project-local only** pilot for delegating bounded work to other AI CLIs.
+This repository contains a **project-local first** delegation foundation for bounded work across AI CLIs.
 
 Rules:
 
@@ -21,7 +21,9 @@ Rules:
 Local pilot intent:
 
 - Prove the structure works inside one project first.
+- Preserve a path to wider/global expansion after local validation.
 - Use `--execute` for normal work once the wrapper is stable.
 - Reserve `--dry-run` for wrapper changes, contract checks, and debugging.
 - Treat `logs/production/` as the real work log and `logs/debug/` as test/debug output.
 - Keep logs, schemas, and test cases inside the repo so the pilot is portable.
+- Prefer compatibility extension over replacement when adapting existing agent markdown assets.
