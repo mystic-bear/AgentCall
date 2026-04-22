@@ -8,19 +8,18 @@ STDOUT_FILE="$3"
 STDERR_FILE="$4"
 ALLOW_WRITES="${5:-false}"
 MODEL_NAME="${6:-}"
-PROMPT_CONTENT="$(cat "$PROMPT_FILE")"
+OUTPUT_SCHEMA_FILE="${7:-}"
 LOCAL_CODEX_SCRIPT="$ROOT_DIR/scripts/local_codex.sh"
 
-if [[ "$ALLOW_WRITES" == "true" ]]; then
-  if [[ -n "$MODEL_NAME" ]]; then
-    timeout "$TIMEOUT_SEC" "$LOCAL_CODEX_SCRIPT" exec --model "$MODEL_NAME" --dangerously-bypass-approvals-and-sandbox "$PROMPT_CONTENT" >"$STDOUT_FILE" 2>"$STDERR_FILE"
-  else
-    timeout "$TIMEOUT_SEC" "$LOCAL_CODEX_SCRIPT" exec --dangerously-bypass-approvals-and-sandbox "$PROMPT_CONTENT" >"$STDOUT_FILE" 2>"$STDERR_FILE"
-  fi
-else
-  if [[ -n "$MODEL_NAME" ]]; then
-    timeout "$TIMEOUT_SEC" "$LOCAL_CODEX_SCRIPT" exec --model "$MODEL_NAME" "$PROMPT_CONTENT" >"$STDOUT_FILE" 2>"$STDERR_FILE"
-  else
-    timeout "$TIMEOUT_SEC" "$LOCAL_CODEX_SCRIPT" exec "$PROMPT_CONTENT" >"$STDOUT_FILE" 2>"$STDERR_FILE"
-  fi
+CMD=(timeout "$TIMEOUT_SEC" "$LOCAL_CODEX_SCRIPT" exec)
+if [[ -n "$MODEL_NAME" ]]; then
+  CMD+=(--model "$MODEL_NAME")
 fi
+if [[ -n "$OUTPUT_SCHEMA_FILE" ]]; then
+  CMD+=(--output-schema "$OUTPUT_SCHEMA_FILE")
+fi
+if [[ "$ALLOW_WRITES" == "true" ]]; then
+  CMD+=(--dangerously-bypass-approvals-and-sandbox)
+fi
+
+"${CMD[@]}" --prompt-file "$PROMPT_FILE" >"$STDOUT_FILE" 2>"$STDERR_FILE"

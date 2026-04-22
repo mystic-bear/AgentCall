@@ -39,7 +39,7 @@
 | dry-run 검증 | wrapper dry-run 성공 | [x] | 검증 완료 |
 | Gate S 자동 점검 | 반복 가능한 체크 스크립트 존재 | [x] | `scripts/run_gate_s_checks.sh` 추가 |
 | pressure test 기록 | Gate S 결과 문서화 | [x] | `test-cases/gate-s-report.md` 갱신 완료 |
-| pre-S execute 차단 | Gate S 전 실실행 차단 | [x] | `call_cli.sh --execute` 가드 존재 |
+| pre-required-gate execute 차단 | agent 요구 gate 미충족 시 실실행 차단 | [x] | `call_cli.sh --execute` 가드 존재 |
 | secrets 차단 | 민감 파일 입력 차단 | [x] | wrapper guard 구현 완료 |
 | recursion 차단 | depth > 0에서 차단 | [x] | wrapper guard 구현 완료 |
 
@@ -72,6 +72,7 @@
 - 완료: 오버헤드 절감 검토 문서 작성. 단순수정 비위임, 명시 요청 리뷰만 수행, Codex 최종판단, advisory call text 중심 방향 정리
 - 완료: wrapper/process에 저오버헤드 정책 반영. `review/design`은 text-first, strict schema는 opt-in, `test-hello`/`design-synthesizer`만 기본 strict 유지
 - 완료: dry-run/debug 로그와 production 로그 분리. wrapper 기본 사용을 `--execute` 중심으로 전환하고 기존 혼합 로그를 `production/debug/legacy-wrapper.log`로 정리
+- 완료: review-driven hardening round. `requires-human-gate` 실행 enforcement, `timeout-sec`/`output-schema` 해석, Codex prompt-file transport, secret scan 확장, canonical context logging 반영
 - 남음: 브라우저 수준 자동화 테스트는 아직 없음. 현재는 로직 테스트 + 정적서버 smoke 수준 검증까지 완료
 
 ## Update Log
@@ -84,3 +85,4 @@
 - 2026-04-22 14:18 +09:00: 리뷰는 명시 요청 AI만 호출하고 합의 과정 없이 Codex가 최종판단하는 모델로 문서를 개정. review 출력은 text 중심으로 정리.
 - 2026-04-22 14:31 +09:00: `call_cli.sh`에 text-first response contract와 `--strict-schema` opt-in 반영. agent frontmatter/본문 수정 및 `response_contract_checks.sh` 추가, 검증 통과.
 - 2026-04-22 15:31 +09:00: `call_cli.sh` 기본 모드를 execute로 전환하고 dry-run은 debug bucket으로 분리. 기존 로그도 `logs/production`, `logs/debug`, `legacy-wrapper.log` 구조로 재정리.
+- 2026-04-22 17:35 +09:00: review-driven hardening 반영. secret scan, gate enforcement, timeout/schema enforcement, prompt transport, validation/docs 보강 완료.

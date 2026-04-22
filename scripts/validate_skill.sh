@@ -69,13 +69,24 @@ done
 bash -n \
   "$ROOT_DIR/scripts/call_cli.sh" \
   "$ROOT_DIR/scripts/local_codex.sh" \
-  "$ROOT_DIR/scripts/extract_response_body.mjs" \
   "$ROOT_DIR/scripts/validate_skill.sh" \
   "$ROOT_DIR/scripts/adapters/claude.sh" \
   "$ROOT_DIR/scripts/adapters/codex.sh" \
   "$ROOT_DIR/scripts/adapters/gemini.sh" \
   && printf 'OK   bash syntax\n' \
   || { printf 'FAIL bash syntax\n'; failures=$((failures + 1)); }
+
+if command -v node >/dev/null 2>&1; then
+  if node --check "$ROOT_DIR/scripts/extract_response_body.mjs" >/dev/null 2>&1; then
+    printf 'OK   node syntax\n'
+  else
+    printf 'FAIL node syntax\n'
+    failures=$((failures + 1))
+  fi
+else
+  printf 'FAIL node syntax (node missing)\n'
+  failures=$((failures + 1))
+fi
 
 check_state_key "Skill Version"
 check_state_key "Current Phase"

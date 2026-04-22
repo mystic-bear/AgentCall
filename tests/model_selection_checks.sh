@@ -17,11 +17,12 @@ ROOT_DIR="$(normalize_path "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -L)"
 TMP_AGENT="$ROOT_DIR/.docs/ai-workflow/test-cases/tmp-model-agent.md"
 TMP_AGENT_NO_MODEL="$ROOT_DIR/.docs/ai-workflow/test-cases/tmp-model-default-agent.md"
 TMP_AGENT_NO_MODEL_CLAUDE="$ROOT_DIR/.docs/ai-workflow/test-cases/tmp-model-default-claude-agent.md"
+TMP_AGENT_NO_MODEL_CODEX="$ROOT_DIR/.docs/ai-workflow/test-cases/tmp-model-default-codex-agent.md"
 TMP_OUT="$ROOT_DIR/.docs/ai-workflow/test-cases/tmp-model-dryrun.json"
 FAILURES=0
 
 cleanup() {
-  rm -f "$TMP_AGENT" "$TMP_AGENT_NO_MODEL" "$TMP_AGENT_NO_MODEL_CLAUDE" "$TMP_OUT"
+  rm -f "$TMP_AGENT" "$TMP_AGENT_NO_MODEL" "$TMP_AGENT_NO_MODEL_CLAUDE" "$TMP_AGENT_NO_MODEL_CODEX" "$TMP_OUT"
 }
 trap cleanup EXIT
 
@@ -83,6 +84,25 @@ requires-human-gate: S
 Return a json fenced block.
 EOF
 
+cat > "$TMP_AGENT_NO_MODEL_CODEX" <<'EOF'
+---
+run-agent: codex
+role: tmp-provider-default-check-codex
+mode: read-only
+write-policy: none
+output-schema: .docs/ai-workflow/schema/common.schema.json
+timeout-sec: 60
+max-context-files: 1
+max-context-bytes: 10000
+allow-recursion: false
+requires-human-gate: S
+---
+
+# Tmp Provider Default Check Codex
+
+Return a json fenced block.
+EOF
+
 if ./scripts/call_cli.sh --agent "$TMP_AGENT" --prompt "model check" --dry-run > "$TMP_OUT"; then
   :
 else
@@ -136,6 +156,20 @@ if grep -q '"model": "claude-sonnet-4-6"' "$TMP_OUT"; then
   echo "OK   provider default claude model appears in dry-run"
 else
   echo "FAIL provider default claude model missing in dry-run"
+  FAILURES=$((FAILURES + 1))
+fi
+
+if ./scripts/call_cli.sh --agent "$TMP_AGENT_NO_MODEL_CODEX" --prompt "provider default check codex" --dry-run > "$TMP_OUT"; then
+  :
+else
+  echo "FAIL provider default codex dry-run command failed"
+  exit 1
+fi
+
+if grep -q '"model": "gpt-5.4"' "$TMP_OUT"; then
+  echo "OK   provider default codex model appears in dry-run"
+else
+  echo "FAIL provider default codex model missing in dry-run"
   FAILURES=$((FAILURES + 1))
 fi
 

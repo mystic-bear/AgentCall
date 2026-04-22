@@ -20,6 +20,7 @@ TMP_SECRET="$ROOT_DIR/.docs/ai-workflow/test-cases/tmp-secret.env"
 
 PASS_COUNT=0
 FAIL_COUNT=0
+STATE_BACKUP=""
 
 record() {
   local status="$1"
@@ -33,15 +34,39 @@ record() {
   fi
 }
 
+set_state_value() {
+  local key="$1"
+  local value="$2"
+  python3 - <<PY
+from pathlib import Path
+path = Path(r"""$STATE_FILE""")
+key = r"""$key"""
+value = r"""$value"""
+lines = path.read_text(encoding="utf-8").splitlines()
+needle = f"**{key}**:"
+for index, line in enumerate(lines):
+    if line.startswith(needle):
+        lines[index] = f"{needle} {value}"
+        break
+else:
+    raise SystemExit(f"missing state key: {key}")
+path.write_text("\\n".join(lines) + "\\n", encoding="utf-8")
+PY
+}
+
 cleanup() {
   rm -f "$TMP_SECRET"
+  if [[ -n "$STATE_BACKUP" ]]; then
+    printf '%s' "$STATE_BACKUP" > "$STATE_FILE"
+  fi
 }
-trap cleanup EXIT
+trap cleanup EXIT INT TERM ERR
+STATE_BACKUP="$(cat "$STATE_FILE")"
 
 cat > "$REPORT_FILE" <<EOF
 # Gate S Report
 
-Generated: 2026-04-22 11:20 +09:00
+Generated: $(date '+%Y-%m-%d %H:%M %z')
 
 | Status | Check | Detail |
 |--------|-------|--------|
@@ -63,10 +88,12 @@ else
   record "FAIL" "dry-run smoke" "dry-run command failed"
 fi
 
-if ./scripts/call_cli.sh --agent .agents/architect.md --prompt "This should not execute before Gate S" --execute >/tmp/gate_s_pre_execute.out 2>/tmp/gate_s_pre_execute.err; then
+set_state_value "Last Gate Passed" "0"
+
+if ./scripts/call_cli.sh --agent .agents/design-synthesizer.md --prompt "This should not execute before Gate S" --execute >/tmp/gate_s_pre_execute.out 2>/tmp/gate_s_pre_execute.err; then
   record "FAIL" "pre-Gate-S execute block" "execute unexpectedly succeeded"
 else
-  if grep -q 'execution blocked until Gate S or later' /tmp/gate_s_pre_execute.err; then
+  if grep -q 'requires gate S' /tmp/gate_s_pre_execute.err; then
     record "PASS" "pre-Gate-S execute block" "execute correctly blocked"
   else
     record "FAIL" "pre-Gate-S execute block" "wrong failure mode"
@@ -87,14 +114,7 @@ else
   fi
 fi
 
-STATE_BACKUP="$(cat "$STATE_FILE")"
-python3 - <<PY
-from pathlib import Path
-path = Path(r"""$STATE_FILE""")
-text = path.read_text(encoding="utf-8")
-text = text.replace("**Current Delegation Depth**: 0", "**Current Delegation Depth**: 1", 1)
-path.write_text(text, encoding="utf-8")
-PY
+set_state_value "Current Delegation Depth" "1"
 
 if ./scripts/call_cli.sh --agent .agents/architect.md --prompt "Recursion guard test" --dry-run >/tmp/gate_s_recur.out 2>/tmp/gate_s_recur.err; then
   record "FAIL" "recursion guard" "depth=1 unexpectedly allowed"
@@ -106,7 +126,8 @@ else
   fi
 fi
 
-printf '%s' "$STATE_BACKUP" > "$STATE_FILE"
+set_state_value "Current Delegation Depth" "0"
+set_state_value "Last Gate Passed" "S"
 
 if ./tests/local_pilot_checks.sh >/tmp/gate_s_local_checks.out 2>/tmp/gate_s_local_checks.err; then
   record "PASS" "artifact completeness" "local_pilot_checks.sh passed"

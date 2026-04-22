@@ -17,6 +17,16 @@ Rules:
   - explicit `--model`
   - agent frontmatter `model:`
   - provider default from `.docs/ai-workflow/model-defaults.env`
+- Reduce overhead by avoiding unnecessary delegation and over-structured contracts.
+
+Strict schema resolution:
+
+1. `--strict-schema`
+2. agent frontmatter `strict-schema:`
+3. agent frontmatter `response-mode: json-fenced`
+4. agent frontmatter `call-type: synthesis|smoke`
+5. role-derived defaults for `design-synthesizer` and `test-hello`
+6. otherwise `false`
 
 Local pilot intent:
 
@@ -27,3 +37,4 @@ Local pilot intent:
 - Treat `logs/production/` as the real work log and `logs/debug/` as test/debug output.
 - Keep logs, schemas, and test cases inside the repo so the pilot is portable.
 - Prefer compatibility extension over replacement when adapting existing agent markdown assets.
+- Enforce agent-specific `requires-human-gate` values at execution time instead of using one global execute gate.

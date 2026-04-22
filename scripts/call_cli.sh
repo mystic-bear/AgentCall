@@ -37,12 +37,14 @@ EXECUTE=true
 DRY_RUN=false
 STRICT_SCHEMA_OVERRIDE=""
 LOG_BUCKET_OVERRIDE=""
+TIMEOUT_OVERRIDE_SET=false
 
 CLI=""
 AGENT_FILE=""
 PROMPT=""
 MODEL_NAME=""
 CONTEXT_FILES=()
+CONTEXT_FILES_CANONICAL=()
 
 readonly EXIT_OK=0
 readonly EXIT_CLI_ERROR=1
@@ -52,6 +54,8 @@ readonly EXIT_CONTEXT_LIMIT=4
 readonly EXIT_USER_ERROR=5
 readonly EXIT_RECURSION_BLOCKED=6
 readonly EXIT_SECRETS_VIOLATION=7
+LOG_ROOT="$LOG_BASE"
+WRAPPER_LOG_FILE="$LOG_BASE/wrapper-bootstrap.log"
 
 canonicalize_existing_file() {
   local input="$1"
@@ -82,15 +86,15 @@ require_within_root() {
 
 state_value() {
   local key="$1"
-  awk -F': ' -v key="**${key}**" '$1 == key { print $2; exit }' "$STATE_FILE"
+  awk -v prefix="**${key}**: " 'index($0, prefix) == 1 { print substr($0, length(prefix) + 1); exit }' "$STATE_FILE"
 }
 
 fm_value() {
   local key="$1"
-  awk -F': ' -v key="$key" '
+  awk -v prefix="${key}: " '
     BEGIN { in_fm=0 }
     /^---$/ { in_fm = !in_fm; next }
-    in_fm && $1 == key { print $2; exit }
+    in_fm && index($0, prefix) == 1 { print substr($0, length(prefix) + 1); exit }
   ' "$AGENT_FILE"
 }
 
@@ -103,8 +107,10 @@ extract_agent_body() {
 }
 
 log_line() {
-  mkdir -p "$LOG_ROOT"
-  printf '[%s] %s\n' "$(date -Iseconds)" "$*" >> "$WRAPPER_LOG_FILE"
+  local log_root="${LOG_ROOT:-$LOG_BASE}"
+  local wrapper_log="${WRAPPER_LOG_FILE:-$LOG_BASE/wrapper-bootstrap.log}"
+  mkdir -p "$log_root"
+  printf '[%s] %s\n' "$(date -Iseconds)" "$*" >> "$wrapper_log"
 }
 
 has_secrets() {
@@ -112,10 +118,12 @@ has_secrets() {
   local base
   base="$(basename "$file")"
   case "$base" in
+    .env.example|.env.sample|.env.template|*.example.env|*.sample.env|*.template.env) ;;
     .env|*.pem|*.key|id_rsa|id_ed25519|secrets.*) return 0 ;;
+    .env.*) return 0 ;;
   esac
 
-  if grep -Eq 'OPENAI_API_KEY|ANTHROPIC_API_KEY|GOOGLE_API_KEY|BEGIN [A-Z ]*PRIVATE KEY' "$file"; then
+  if grep -Eq 'OPENAI_API_KEY|ANTHROPIC_API_KEY|GOOGLE_API_KEY|AWS_SECRET_ACCESS_KEY|STRIPE_SECRET_KEY|GITHUB_TOKEN|HF_TOKEN|BEGIN [A-Z ]*PRIVATE KEY' "$file"; then
     return 0
   fi
   return 1
@@ -179,6 +187,11 @@ default_model_for_cli() {
       printf '%s' ""
       ;;
   esac
+}
+
+root_relative_path() {
+  local path="$1"
+  printf '%s' "${path#$ROOT_DIR/}"
 }
 
 normalize_bool() {
@@ -263,6 +276,27 @@ default_log_bucket() {
   printf 'production'
 }
 
+gate_rank() {
+  local gate="${1:-none}"
+  case "$gate" in
+    none|0|"") printf '0' ;;
+    A) printf '1' ;;
+    B) printf '2' ;;
+    C) printf '3' ;;
+    S) printf '4' ;;
+    *) printf '-1' ;;
+  esac
+}
+
+gate_at_least() {
+  local actual="$1"
+  local required="$2"
+  local actual_rank required_rank
+  actual_rank="$(gate_rank "$actual")"
+  required_rank="$(gate_rank "$required")"
+  [[ "$actual_rank" -ge 0 && "$required_rank" -ge 0 && "$actual_rank" -ge "$required_rank" ]]
+}
+
 validate_log_bucket() {
   local bucket="${1:-}"
   case "$bucket" in
@@ -278,7 +312,7 @@ while [[ $# -gt 0 ]]; do
     --prompt) PROMPT="$2"; shift 2 ;;
     --model) MODEL_NAME="$2"; shift 2 ;;
     --context) CONTEXT_FILES+=("$2"); shift 2 ;;
-    --timeout) TIMEOUT_SEC="$2"; shift 2 ;;
+    --timeout) TIMEOUT_SEC="$2"; TIMEOUT_OVERRIDE_SET=true; shift 2 ;;
     --max-context-files) MAX_CTX_FILES="$2"; shift 2 ;;
     --max-context-bytes) MAX_CTX_BYTES="$2"; shift 2 ;;
     --session-id) SESSION_ID="$2"; shift 2 ;;
@@ -310,12 +344,15 @@ fi
 
 AGENT_ROLE="$(fm_value "role")"
 FRONTMATTER_MODEL="$(fm_value "model" || true)"
+ROLE_TIMEOUT_SEC="$(fm_value "timeout-sec" || true)"
 ROLE_MAX_CTX_FILES="$(fm_value "max-context-files" || true)"
 ROLE_MAX_CTX_BYTES="$(fm_value "max-context-bytes" || true)"
 ALLOW_RECURSION="$(fm_value "allow-recursion" || true)"
 CALL_TYPE="$(fm_value "call-type" || true)"
 RESPONSE_MODE="$(fm_value "response-mode" || true)"
 STRICT_SCHEMA_FRONTMATTER="$(fm_value "strict-schema" || true)"
+OUTPUT_SCHEMA_RAW="$(fm_value "output-schema" || true)"
+REQUIRED_GATE="$(fm_value "requires-human-gate" || true)"
 
 if [[ -z "$MODEL_NAME" && -n "$FRONTMATTER_MODEL" ]]; then
   MODEL_NAME="$FRONTMATTER_MODEL"
@@ -324,6 +361,9 @@ if [[ -z "$MODEL_NAME" ]]; then
   MODEL_NAME="$(default_model_for_cli "$CLI")"
 fi
 
+if [[ "$TIMEOUT_OVERRIDE_SET" != "true" && -n "$ROLE_TIMEOUT_SEC" ]]; then
+  TIMEOUT_SEC="$ROLE_TIMEOUT_SEC"
+fi
 if [[ -n "$ROLE_MAX_CTX_FILES" ]]; then
   MAX_CTX_FILES="$ROLE_MAX_CTX_FILES"
 fi
@@ -348,6 +388,18 @@ if [[ -z "$STRICT_SCHEMA" ]]; then
 fi
 if [[ -n "$STRICT_SCHEMA_OVERRIDE" ]]; then
   STRICT_SCHEMA="$STRICT_SCHEMA_OVERRIDE"
+fi
+
+if [[ -z "$REQUIRED_GATE" ]]; then
+  REQUIRED_GATE="S"
+fi
+
+OUTPUT_SCHEMA_FILE=""
+OUTPUT_SCHEMA_RELATIVE=""
+if [[ -n "$OUTPUT_SCHEMA_RAW" ]]; then
+  OUTPUT_SCHEMA_FILE="$(canonicalize_existing_file "$OUTPUT_SCHEMA_RAW")" || { echo "ERROR: output schema file missing: $OUTPUT_SCHEMA_RAW" >&2; exit "$EXIT_USER_ERROR"; }
+  require_within_root "$OUTPUT_SCHEMA_FILE"
+  OUTPUT_SCHEMA_RELATIVE="$(root_relative_path "$OUTPUT_SCHEMA_FILE")"
 fi
 
 LOG_BUCKET="$(default_log_bucket "$DRY_RUN" "$AGENT_ROLE" "$CALL_TYPE" "$SESSION_ID")"
@@ -389,6 +441,7 @@ CONTEXT_BLOCK=""
 for item in "${CONTEXT_FILES[@]}"; do
   file="$(canonicalize_existing_file "$item")" || { echo "ERROR: missing context file: $item" >&2; exit "$EXIT_USER_ERROR"; }
   require_within_root "$file"
+  CONTEXT_FILES_CANONICAL+=("$(root_relative_path "$file")")
 
   if has_secrets "$file"; then
     echo "ERROR: secret-bearing file blocked: $file" >&2
@@ -455,9 +508,12 @@ cat >"$DECISION_FILE" <<EOF
   "log_bucket": "$(json_escape "$LOG_BUCKET")",
   "response_mode": "$(json_escape "$RESPONSE_MODE")",
   "strict_schema": $( [[ "$STRICT_SCHEMA" == "true" ]] && printf 'true' || printf 'false' ),
+  "timeout_sec": $TIMEOUT_SEC,
+  "required_gate": "$(json_escape "$REQUIRED_GATE")",
+  "output_schema": "$(json_escape "$OUTPUT_SCHEMA_RELATIVE")",
   "delegation_depth": ${CURRENT_DEPTH:-0},
   "writes_enabled": $( [[ "$ALLOW_WRITES" == "true" ]] && printf 'true' || printf 'false' ),
-  "context_files": $(json_array_from_args "${CONTEXT_FILES[@]}"),
+  "context_files": $(json_array_from_args "${CONTEXT_FILES_CANONICAL[@]}"),
   "status": "ok",
   "prompt_hash": "$(json_escape "$PROMPT_HASH")",
   "phase": "$(json_escape "${CURRENT_PHASE:-unknown}")",
@@ -480,19 +536,22 @@ if [[ "$DRY_RUN" == "true" ]]; then
   "log_bucket": "$(json_escape "$LOG_BUCKET")",
   "response_mode": "$(json_escape "$RESPONSE_MODE")",
   "strict_schema": $( [[ "$STRICT_SCHEMA" == "true" ]] && printf 'true' || printf 'false' ),
+  "timeout_sec": $TIMEOUT_SEC,
+  "required_gate": "$(json_escape "$REQUIRED_GATE")",
+  "output_schema": "$(json_escape "$OUTPUT_SCHEMA_RELATIVE")",
   "phase": "$(json_escape "${CURRENT_PHASE:-unknown}")",
   "last_gate_passed": "$(json_escape "${LAST_GATE:-none}")",
   "prompt_file": "$(json_escape "$PROMPT_FILE")",
   "decision_file": "$(json_escape "$DECISION_FILE")",
   "prompt_hash": "$(json_escape "$PROMPT_HASH")",
-  "context_files": $(json_array_from_args "${CONTEXT_FILES[@]}")
+  "context_files": $(json_array_from_args "${CONTEXT_FILES_CANONICAL[@]}")
 }
 EOF
   exit "$EXIT_OK"
 fi
 
-if [[ "${LAST_GATE:-none}" == "none" || "${LAST_GATE:-none}" == "0" ]]; then
-  echo "ERROR: execution blocked until Gate S or later" >&2
+if ! gate_at_least "${LAST_GATE:-none}" "$REQUIRED_GATE"; then
+  echo "ERROR: execution blocked because agent requires gate $REQUIRED_GATE but current gate is ${LAST_GATE:-none}" >&2
   exit "$EXIT_USER_ERROR"
 fi
 
@@ -508,7 +567,7 @@ ADAPTER="$ROOT_DIR/scripts/adapters/${CLI}.sh"
 [[ -x "$ADAPTER" ]] || { echo "ERROR: missing adapter: $ADAPTER" >&2; exit "$EXIT_USER_ERROR"; }
 
 set +e
-"$ADAPTER" "$PROMPT_FILE" "$TIMEOUT_SEC" "$STDOUT_FILE" "$STDERR_FILE" "$ALLOW_WRITES" "$MODEL_NAME"
+"$ADAPTER" "$PROMPT_FILE" "$TIMEOUT_SEC" "$STDOUT_FILE" "$STDERR_FILE" "$ALLOW_WRITES" "$MODEL_NAME" "$OUTPUT_SCHEMA_FILE"
 RC=$?
 set -e
 

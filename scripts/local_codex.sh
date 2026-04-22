@@ -20,7 +20,8 @@ usage() {
   cat <<EOF
 Usage:
   ./scripts/local_codex.sh login
-  ./scripts/local_codex.sh exec [--model <name>] [--dangerously-bypass-approvals-and-sandbox] "<prompt>"
+  ./scripts/local_codex.sh exec [--model <name>] [--output-schema <file>] [--dangerously-bypass-approvals-and-sandbox] "<prompt>"
+  ./scripts/local_codex.sh exec [--model <name>] [--output-schema <file>] [--dangerously-bypass-approvals-and-sandbox] --prompt-file <file>
   ./scripts/local_codex.sh env
   ./scripts/local_codex.sh path
 
@@ -48,12 +49,22 @@ case "$subcommand" in
   exec)
     ensure_runtime_home
     MODEL_ARG=""
+    OUTPUT_SCHEMA_ARG=""
     EXTRA_ARGS=()
     PROMPT=""
+    PROMPT_FILE=""
     while [[ $# -gt 0 ]]; do
       case "$1" in
         --model)
           MODEL_ARG="$2"
+          shift 2
+          ;;
+        --output-schema)
+          OUTPUT_SCHEMA_ARG="$2"
+          shift 2
+          ;;
+        --prompt-file)
+          PROMPT_FILE="$2"
           shift 2
           ;;
         --dangerously-bypass-approvals-and-sandbox)
@@ -66,14 +77,32 @@ case "$subcommand" in
           ;;
       esac
     done
-    if [[ -z "$PROMPT" ]]; then
-      echo "ERROR: exec requires a prompt argument" >&2
+    if [[ -n "$PROMPT" && -n "$PROMPT_FILE" ]]; then
+      echo "ERROR: exec accepts either a prompt argument or --prompt-file, not both" >&2
       exit 1
     fi
+    if [[ -z "$PROMPT" && -z "$PROMPT_FILE" ]]; then
+      echo "ERROR: exec requires a prompt argument or --prompt-file" >&2
+      exit 1
+    fi
+    if [[ -n "$PROMPT_FILE" && ! -f "$PROMPT_FILE" ]]; then
+      echo "ERROR: prompt file not found: $PROMPT_FILE" >&2
+      exit 1
+    fi
+
+    CODEX_CMD=(codex exec --skip-git-repo-check)
     if [[ -n "$MODEL_ARG" ]]; then
-      CODEX_HOME="$CODEX_RUNTIME_HOME" codex exec --skip-git-repo-check --model "$MODEL_ARG" "${EXTRA_ARGS[@]}" "$PROMPT"
+      CODEX_CMD+=(--model "$MODEL_ARG")
+    fi
+    if [[ -n "$OUTPUT_SCHEMA_ARG" ]]; then
+      CODEX_CMD+=(--output-schema "$OUTPUT_SCHEMA_ARG")
+    fi
+    CODEX_CMD+=("${EXTRA_ARGS[@]}")
+
+    if [[ -n "$PROMPT_FILE" ]]; then
+      CODEX_HOME="$CODEX_RUNTIME_HOME" "${CODEX_CMD[@]}" - < "$PROMPT_FILE"
     else
-      CODEX_HOME="$CODEX_RUNTIME_HOME" codex exec --skip-git-repo-check "${EXTRA_ARGS[@]}" "$PROMPT"
+      CODEX_HOME="$CODEX_RUNTIME_HOME" "${CODEX_CMD[@]}" "$PROMPT"
     fi
     ;;
   env)

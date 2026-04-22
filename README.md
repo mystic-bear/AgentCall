@@ -9,6 +9,8 @@
 - 다른 AI CLI를 bounded role 단위로 호출할 수 있는지 검증
 - 실제 운영 시 오버헤드를 줄일 수 있는 구조로 정리
 
+운영 철학은 불필요한 위임과 과도한 계약 강제를 줄이고, 필요한 guard와 추적성만 남기는 것입니다.
+
 ## What This Repo Does
 
 이 저장소는 아래 역할을 합니다.
@@ -18,6 +20,7 @@
 - 상태, 스키마, 체크리스트, 테스트 케이스를 `.docs/ai-workflow/`에 보관
 - dry-run/debug 로그와 실제 작업 로그를 분리
 - 모델 기본값, response contract, guard rule을 프로젝트 내부에서만 고정
+- frontmatter의 `timeout-sec`, `requires-human-gate`, `output-schema`를 wrapper가 실제로 해석
 
 즉, “프로젝트 안에서 먼저 안정화한 구조를 전역 확장 가능한 형태로 준비한다”는 목적의 저장소입니다.
 
@@ -72,6 +75,21 @@
 1. `--model`
 2. agent frontmatter의 `model:`
 3. `.docs/ai-workflow/model-defaults.env`
+
+strict schema 해석 순서:
+
+1. `--strict-schema`
+2. agent frontmatter의 `strict-schema:`
+3. agent frontmatter의 `response-mode: json-fenced`
+4. agent frontmatter의 `call-type: synthesis|smoke`
+5. role 기반 기본값 (`design-synthesizer`, `test-hello`)
+6. 그 외 `false`
+
+실행 gate 해석:
+
+- `--execute`는 agent frontmatter의 `requires-human-gate:`를 기준으로 차단됩니다.
+- `architect`는 `A`, `bug-reviewer`는 `C`, `design-synthesizer`는 `S`가 필요합니다.
+- `--dry-run`은 실제 외부 CLI를 호출하지 않으므로 gate 확인 전 점검 용도로 유지됩니다.
 
 ## Compatibility Direction
 
@@ -169,6 +187,18 @@ dry-run이 debug bucket으로 들어가는지 점검:
 bash ./tests/log_bucket_checks.sh
 ```
 
+hardening 회귀 점검:
+
+```bash
+bash ./tests/hardening_checks.sh
+```
+
+Codex prompt-file 전달 점검:
+
+```bash
+bash ./tests/codex_promptfile_checks.sh
+```
+
 ## Common Commands
 
 `architect` 호출:
@@ -220,6 +250,8 @@ Codex local runtime 경로 확인:
 - context file 수/크기 제한
 - project root 바깥 경로 차단
 - 역할별 response contract 제어
+- agent별 human gate enforcement
+- frontmatter 기반 timeout/output-schema 해석
 
 즉, “아무거나 바로 던지는 wrapper”가 아니라 최소한의 운영 제약을 둔 파일럿입니다.
 

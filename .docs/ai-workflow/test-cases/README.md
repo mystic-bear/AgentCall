@@ -42,5 +42,5 @@ printf 'OPENAI_API_KEY=test\n' > /tmp/fake.env
 ## Notes
 
 - The pilot is project-local only.
-- `--dry-run` is the safe default.
-- Real execution is blocked until `Last Gate Passed` is at least `S`.
+- `--execute` is the normal path once the wrapper is stable, and `--dry-run` is reserved for wrapper/debug checks.
+- Real execution is blocked until `Last Gate Passed` satisfies the agent's `requires-human-gate` value.
