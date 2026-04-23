@@ -34,6 +34,94 @@
 
 즉, 지금 이 저장소는 “실험용 초안”보다 **AgentCall 배포 기준 저장소**에 가깝습니다.
 
+## Architecture
+
+핵심 구조는 아래처럼 보면 됩니다.
+
+```text
+Codex session
+  -> AgentCall skill / wrapper entry
+    -> agent metadata resolution
+      -> provider adapter (Claude / Gemini / Codex)
+        -> provider CLI response
+          -> body extraction / contract handling
+            -> caller
+```
+
+실제 파일 기준으로는 이렇습니다.
+
+- `~/.codex/skills/AgentCall/SKILL.md`
+  - Codex가 발견하는 전역 skill entry
+- `~/.codex/AgentCall/scripts/global_call_cli.sh`
+  - 전역 호출 진입점
+- `~/.codex/AgentCall/scripts/normalize_agent_meta.sh`
+  - agent frontmatter와 legacy field를 정규화
+- `~/.codex/AgentCall/agents/*.md`
+  - curated global agent definitions
+- `~/.codex/AgentCall/scripts/adapters/*.sh`
+  - provider별 CLI adapter
+
+project-local에서는 같은 역할을 아래가 담당합니다.
+
+- `scripts/call_cli.sh`
+- `.agents/*.md`
+- `.docs/ai-workflow/`
+
+즉, **AgentCall은 “Codex가 다른 AI CLI를 직접 호출하는 공통 wrapper 계층”** 이고, agent markdown은 그 wrapper가 해석하는 role contract라고 보면 됩니다.
+
+## Core Concepts
+
+처음 읽을 때 중요한 개념은 다섯 가지입니다.
+
+### 1. Project-Local First
+
+AgentCall은 원래 project-local pilot로 시작했습니다. 그래서 같은 역할이라도 먼저 **현재 프로젝트 안의 `.agents/*.md`** 를 찾고, 없을 때만 전역 curated agent로 fallback 합니다.
+
+### 2. Bounded Delegation
+
+이 구조는 “자율 멀티에이전트 시스템”보다 **bounded role call** 에 가깝습니다.
+
+- `architect`
+- `frontend-designer`
+- `bug-reviewer`
+- `integrator`
+- `design-synthesizer`
+- `test-hello`
+
+각 agent는 역할과 출력 기대치가 제한되어 있고, wrapper가 그 경계를 유지합니다.
+
+### 3. Compatibility Layer
+
+기존 agent markdown을 전부 새 포맷으로 교체하지 않기 위해 `normalize_agent_meta.sh` 가 최소 호환 레이어 역할을 합니다.
+
+- canonical field 우선
+- 일부 alias 허용
+- 누락값은 role 기반 기본값으로 추론
+
+즉, AgentCall의 목적은 “새 문법 강제”보다 **기존 agent 자산을 안 깨고 연결하는 것**에 더 가깝습니다.
+
+### 4. Side-Effects Model
+
+전역 runtime에서는 `requires-human-gate`만으로 read-only agent를 막지 않도록 `side-effects` 개념을 둡니다.
+
+- `side-effects: none`
+  - read-only delegation
+  - lifecycle metadata는 남아도 실행 차단은 기본적으로 하지 않음
+- `side-effects: workspace-write | external-write`
+  - mutation-capable delegation
+  - 이 경우 gate enforcement가 중요해짐
+
+이 분리가 최근 global friction 완화의 핵심입니다.
+
+### 5. Fallback Runtime Root
+
+전역 install 환경에서 project-local state가 없더라도, 기본 fallback은 `~/.codex`가 아니라 tmp 기반입니다.
+
+- 기본: `${TMPDIR:-/tmp}/agentcall/<project-key>/`
+- opt-in persistent: `AGENTCALL_PERSIST_GLOBAL=1`
+
+이렇게 해서 Codex sandbox 환경에서 매번 권한 상승을 요구하는 문제를 줄였습니다.
+
 ## Install
 
 ### Prerequisites
