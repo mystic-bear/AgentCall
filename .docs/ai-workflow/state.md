@@ -25,10 +25,11 @@
 - 2026-04-23: The first global basis must ship with a minimal compatibility layer and a global fallback runtime-data path rather than assuming project-local AgentCall state exists.
 - 2026-04-23: The global skill/runtime identity should be `AgentCall`, and the previous managed `subagent-host` install should be migrated out of the active skill list during reinstall.
 - 2026-04-23: The renamed global install must be proven after migration, so actual `~/.codex/AgentCall` validation and one live smoke run are part of completion.
+- 2026-04-23: Existing-agent compatibility is no longer a future-only target; the current global basis already ships with minimal normalization, and follow-up work should focus on widening legacy coverage rather than introducing the compatibility layer itself.
 - 2026-04-22: Wrapper hardening should enforce frontmatter timeout/gate/schema metadata, canonicalize logged context paths, move Codex prompt transport to stdin/prompt-file, and keep review/design outputs text-first by default.
 - 2026-04-22: Gemini read-only delegation should continue to run through `--approval-mode plan`, and this mode must be proven by a live smoke execution rather than assumed from CLI help alone.
-- 2026-04-22: The next implementation target should be a thin compatibility layer that preserves existing agent markdown files and normalizes them at load time instead of replacing them.
-- 2026-04-22: This repo should now be described as a local-first foundation for broader expansion, and the next major step is non-breaking compatibility with existing agent markdown files.
+- 2026-04-22: A thin compatibility layer should preserve existing agent markdown files and normalize them at load time instead of replacing them.
+- 2026-04-22: This repo should be described as a local-first foundation for broader expansion, with non-breaking compatibility for existing agent markdown files as a core requirement.
 - 2026-04-22: Dry-run output should live under `logs/debug`, production work under `logs/production`, and the wrapper should default to execute for routine use.
 - 2026-04-22: The wrapper now defaults review/design roles to text-first responses; strict schema is opt-in and remains default only for smoke/synthesis-style roles.
 - 2026-04-22: Reviews should be requested only from explicitly chosen AIs, without reviewer consensus; Codex makes the final accept/reject decision and review outputs can be text-first.

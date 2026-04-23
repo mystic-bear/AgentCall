@@ -1,8 +1,8 @@
 # AgentCall
 
-프로젝트 로컬에서 먼저 검증한 뒤 전역 확장으로 이어가기 위한 AI CLI delegation 기반입니다.
+project-local first로 시작해, 지금은 Codex 전역 홈까지 확장 가능한 `AgentCall` delegation 기반입니다.
 
-이 저장소는 `Claude`, `Gemini`, `Codex` 같은 외부 CLI를 **특정 프로젝트 안에서 먼저 안정화**하고, 이후 더 넓은 범위로 확장할 수 있는 형태로 정리하기 위해 만들었습니다.
+이 저장소는 `Claude`, `Gemini`, `Codex` 같은 외부 CLI를 **bounded role 단위로 안전하게 호출**하기 위한 source repo입니다. 로컬 wrapper와 운영 규칙을 먼저 검증한 뒤, 같은 규칙을 `~/.codex` 전역 설치 형태로 옮길 수 있게 정리했습니다.
 
 핵심 목표는 두 가지입니다.
 
@@ -10,6 +10,19 @@
 - 실제 운영 시 오버헤드를 줄일 수 있는 구조로 정리
 
 운영 철학은 불필요한 위임과 과도한 계약 강제를 줄이고, 필요한 guard와 추적성만 남기는 것입니다.
+
+## Current Status
+
+현재 기준으로는 아래까지 확인됐습니다.
+
+- project-local wrapper, schema, gate, logging, model selection 검증 완료
+- 전역 설치용 `codex-global/` package와 installer/validator 구현 완료
+- 실제 `~/.codex/skills/AgentCall/SKILL.md`, `~/.codex/AgentCall/` 설치 확인
+- 전역 설치 후 dry-run validation 통과
+- 전역 설치 후 live smoke 통과
+- 다른 프로젝트 기준 Claude/Gemini reviewer 응답 확인
+
+즉, 지금 이 저장소는 “로컬 파일럿만 담은 실험 repo”라기보다, **AgentCall 전역 반영의 source of truth**에 가깝습니다.
 
 ## What This Repo Does
 
@@ -22,7 +35,7 @@
 - 모델 기본값, response contract, guard rule을 프로젝트 내부에서만 고정
 - frontmatter의 `timeout-sec`, `requires-human-gate`, `output-schema`를 wrapper가 실제로 해석
 
-즉, “프로젝트 안에서 먼저 안정화한 구조를 전역 확장 가능한 형태로 준비한다”는 목적의 저장소입니다.
+즉, “프로젝트 안에서 먼저 안정화한 구조를 전역/타 프로젝트에서도 재사용 가능하게 packaging한다”는 목적의 저장소입니다.
 
 ## Repository Layout
 
@@ -95,7 +108,7 @@ strict schema 해석 순서:
 
 ## Compatibility Direction
 
-다음 핵심 목표는 **기존 agent md를 교체하지 않고, 안 깨지게 이어서 쓸 수 있는 호환 레이어**를 준비하는 것입니다.
+기존 agent md를 교체하지 않고, 안 깨지게 이어서 쓰기 위한 **호환 레이어는 이미 현재 basis에 포함**되어 있습니다.
 
 의도는 이렇습니다.
 
@@ -104,7 +117,7 @@ strict schema 해석 순서:
 - 기존 frontmatter가 없어도 가능한 범위에서 자동 추론
 - 새 wrapper 규칙과 구 agent 문서를 함께 수용할 수 있게 확장
 
-즉, 다음 단계의 핵심은 “새 포맷으로 갈아타기”가 아니라 **기존 agent 문서를 그대로 살리면서 연결하는 것**입니다.
+즉, 방향의 핵심은 “새 포맷으로 갈아타기”가 아니라 **기존 agent 문서를 그대로 살리면서 연결하는 것**입니다. 현재 단계에서는 `normalize_agent_meta` 기반의 최소 호환 레이어가 전역 basis에 포함되어 있고, 이후 보완 포인트는 “호환 범위 확대”이지 “호환 구조 신설”이 아닙니다.
 
 ## Logs
 
@@ -220,6 +233,12 @@ bash ./tests/global_codex_install_checks.sh
 - `scripts/validate_global_codex_host.sh`
   - 전역 install 검증 스크립트
 
+전역 설치 후 실제 진입점은 아래입니다.
+
+```bash
+$HOME/.codex/AgentCall/scripts/global_call_cli.sh --agent architect --prompt "..."
+```
+
 기본 설치:
 
 ```bash
@@ -236,6 +255,14 @@ bash ./tests/global_codex_install_checks.sh
 
 - skill entry: `~/.codex/skills/AgentCall/SKILL.md`
 - runtime root: `~/.codex/AgentCall/`
+- global wrapper: `~/.codex/AgentCall/scripts/global_call_cli.sh`
+
+전역 wrapper의 기본 동작은 다음과 같습니다.
+
+- 현재 프로젝트에 `.agents/`가 있으면 project-local agent를 우선 사용
+- 없으면 `~/.codex/AgentCall/agents/`의 curated agent를 fallback으로 사용
+- project-local state/runtime이 없으면 `~/.codex/AgentCall/runtime-data/<project-key>/`를 fallback state/log root로 사용
+- 기본은 read-only delegation
 
 추가로, 다른 프로젝트에서 실제 smoke 확인된 결과도 있습니다.
 
@@ -249,6 +276,15 @@ bash ./tests/global_codex_install_checks.sh
 - `./scripts/validate_global_codex_host.sh --live-smoke` 통과
 
 ## Common Commands
+
+전역 설치본 smoke 예시:
+
+```bash
+$HOME/.codex/AgentCall/scripts/global_call_cli.sh \
+  --agent architect \
+  --prompt "Smoke test only. Reply briefly to hi and confirm you are reachable." \
+  --execute
+```
 
 `architect` 호출:
 
@@ -337,6 +373,6 @@ Codex local runtime 경로 확인:
 - 일반 호출은 `--execute`
 - dry-run은 wrapper/debug 확인용으로만 사용
 
-현재 기준으로는 구조 검증 자체는 거의 성공한 상태로 보고 있고, 다음 준비 항목은 `기존 agent md 호환 확장`이 가장 중요합니다.
+현재 기준으로는 구조 검증과 최소 호환 레이어까지 포함한 전역 basis가 이미 성립한 상태로 보고 있습니다. 다음 준비 항목이 있다면 `기존 agent md 호환 구조` 자체가 아니라, 지원해야 할 legacy field 범위를 더 넓히고 운영 범위를 점진적으로 확대하는 쪽입니다.
 
 이 방향은 초기 파일럿에서 확인된 오버헤드를 줄이기 위해 정리된 현재 기본 정책입니다.
