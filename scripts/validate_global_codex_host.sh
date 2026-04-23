@@ -46,6 +46,7 @@ required_files=(
   "$SKILL_FILE"
   "$WRAPPER"
   "$NORMALIZER"
+  "$INSTALL_ROOT/AgentCall/scripts/check_response_contract.mjs"
   "$INSTALL_ROOT/AgentCall/scripts/adapters/claude.sh"
   "$INSTALL_ROOT/AgentCall/scripts/adapters/codex.sh"
   "$INSTALL_ROOT/AgentCall/scripts/adapters/gemini.sh"

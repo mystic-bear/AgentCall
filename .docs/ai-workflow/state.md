@@ -9,19 +9,20 @@
 **Approved By Human**: partial
 **Last Gate Passed**: S
 **Current Delegation Depth**: 0
-**Last Inputs**: complete the global AgentCall friction work order end-to-end, create a checklist against the work order, get one Claude review, and prepare the final GitHub update
-**Last Outputs**: lazy tmp fallback and side-effect-based gate control implemented, checklist created, Claude review incorporated, npm/global Codex conflict resolved, and docs/tests aligned with the completed work order
-**Open Questions**: how much audit logging read-only global calls should keep, whether `/tmp` should remain the long-term default over workspace-local hidden state, and whether `requires-human-gate` should eventually be renamed after the side-effect split settles
+**Last Inputs**: create a staged schema-validation work order, get Claude and Gemini review, and implement a low-friction contract hardening path without reintroducing full-schema failures
+**Last Outputs**: staged schema-validation work order/checklist written, Claude and Gemini review incorporated, strict-path minimal type checks added, output-schema shadow validation implemented, and docs/tests updated
+**Open Questions**: what mismatch-rate threshold should promote a given agent to selective enforcement, how provider-native schema enforcement should be documented alongside wrapper shadow mode, and whether `/tmp` should remain the long-term default over workspace-local hidden state
 **Blockers**: none
 **Last Exit Code**: 0
 **Retry Count**: 0
-**Last Updated**: 2026-04-23T21:35:00+09:00
+**Last Updated**: 2026-04-24T11:15:00+09:00
 **Session ID**: bootstrap-local-pilot
 **Correlation ID**: bootstrap-local-pilot
 
 ## Decisions Log (append-only, 최신이 위)
 
 - 2026-04-23: The next global AgentCall hardening round should default fallback runtime writes to a non-global writable root and use side-effect risk, not lifecycle rank alone, to decide execution blocking.
+- 2026-04-24: Schema hardening should stay two-tiered: soft contracts for review/design, hard-ish contracts for strict agents, minimal type checks for strict paths, and output-schema observation in shadow mode before any selective enforcement.
 - 2026-04-23: The global friction round is complete when lazy tmp fallback, side-effect-based gate enforcement, checklist comparison, and one Claude post-implementation review have all been recorded together.
 - 2026-04-23: Global Codex rollout should use a repo-native package plus installer model, not a thin shim tied to the source repo path.
 - 2026-04-23: The first global basis must ship with a minimal compatibility layer and a global fallback runtime-data path rather than assuming project-local AgentCall state exists.
@@ -62,3 +63,4 @@
 - 2026-04-23T09:40: global-rollout-basis → global-rollout-basis (renamed `AgentCall` install applied to `~/.codex`, legacy active path removed, and live smoke validation passed)
 - 2026-04-23T21:20: global-rollout-basis → global-rollout-basis (npm/global Codex install cleaned up, project-local local-Codex dependency removed, and global friction work order drafted from Claude/Gemini review)
 - 2026-04-23T21:35: global-rollout-basis → global-rollout-basis (lazy tmp fallback and side-effect-based gate model implemented, checklist written, Claude review applied, and validation suite re-passed)
+- 2026-04-24T11:15: global-rollout-basis → global-rollout-basis (staged schema-validation work order reviewed by Claude/Gemini, minimal strict type checks added, and output-schema shadow validation introduced without changing the text-first default model)

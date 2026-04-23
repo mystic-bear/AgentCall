@@ -121,6 +121,7 @@ cp -R "$RUNTIME_SRC" "$RUNTIME_DEST"
 chmod +x \
   "$RUNTIME_DEST/scripts/global_call_cli.sh" \
   "$RUNTIME_DEST/scripts/normalize_agent_meta.sh" \
+  "$RUNTIME_DEST/scripts/check_response_contract.mjs" \
   "$RUNTIME_DEST/scripts/adapters/claude.sh" \
   "$RUNTIME_DEST/scripts/adapters/codex.sh" \
   "$RUNTIME_DEST/scripts/adapters/gemini.sh"

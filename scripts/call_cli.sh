@@ -54,6 +54,7 @@ readonly EXIT_CONTEXT_LIMIT=4
 readonly EXIT_USER_ERROR=5
 readonly EXIT_RECURSION_BLOCKED=6
 readonly EXIT_SECRETS_VIOLATION=7
+readonly EXIT_SCHEMA_TYPE_MISMATCH=8
 LOG_ROOT="$LOG_BASE"
 WRAPPER_LOG_FILE="$LOG_BASE/wrapper-bootstrap.log"
 
@@ -398,11 +399,25 @@ fi
 
 OUTPUT_SCHEMA_FILE=""
 OUTPUT_SCHEMA_RELATIVE=""
+SCHEMA_VALIDATION_MODE="off"
+STRICT_TYPE_CHECKS_DISABLED=false
 if [[ -n "$OUTPUT_SCHEMA_RAW" ]]; then
   OUTPUT_SCHEMA_FILE="$(canonicalize_existing_file "$OUTPUT_SCHEMA_RAW")" || { echo "ERROR: output schema file missing: $OUTPUT_SCHEMA_RAW" >&2; exit "$EXIT_USER_ERROR"; }
   require_within_root "$OUTPUT_SCHEMA_FILE"
   OUTPUT_SCHEMA_RELATIVE="$(root_relative_path "$OUTPUT_SCHEMA_FILE")"
 fi
+
+if [[ "$STRICT_SCHEMA" == "true" && -n "$OUTPUT_SCHEMA_RELATIVE" ]]; then
+  SCHEMA_VALIDATION_MODE="shadow"
+elif [[ "$STRICT_SCHEMA" == "true" ]]; then
+  SCHEMA_VALIDATION_MODE="strict"
+fi
+
+case "${AGENTCALL_DISABLE_STRICT_TYPE_CHECKS:-false}" in
+  true|TRUE|1|yes|YES)
+    STRICT_TYPE_CHECKS_DISABLED=true
+    ;;
+esac
 
 LOG_BUCKET="$(default_log_bucket "$DRY_RUN" "$AGENT_ROLE" "$CALL_TYPE" "$SESSION_ID")"
 if [[ -n "$LOG_BUCKET_OVERRIDE" ]]; then
@@ -437,6 +452,7 @@ STDERR_FILE="$SESSION_DIR/${CLI}.stderr"
 PROMPT_FILE="$SESSION_DIR/prompt.txt"
 BODY_FILE="$SESSION_DIR/body.txt"
 DECISION_FILE="$SESSION_DIR/host-skill-decision.json"
+CONTRACT_VALIDATION_FILE="$SESSION_DIR/contract-validation.json"
 
 TOTAL_BYTES=0
 CONTEXT_BLOCK=""
@@ -513,6 +529,8 @@ cat >"$DECISION_FILE" <<EOF
   "timeout_sec": $TIMEOUT_SEC,
   "required_gate": "$(json_escape "$REQUIRED_GATE")",
   "output_schema": "$(json_escape "$OUTPUT_SCHEMA_RELATIVE")",
+  "schema_validation_mode": "$(json_escape "$SCHEMA_VALIDATION_MODE")",
+  "contract_validation_file": "$(json_escape "$CONTRACT_VALIDATION_FILE")",
   "delegation_depth": ${CURRENT_DEPTH:-0},
   "writes_enabled": $( [[ "$ALLOW_WRITES" == "true" ]] && printf 'true' || printf 'false' ),
   "context_files": $(json_array_from_args "${CONTEXT_FILES_CANONICAL[@]}"),
@@ -541,10 +559,12 @@ if [[ "$DRY_RUN" == "true" ]]; then
   "timeout_sec": $TIMEOUT_SEC,
   "required_gate": "$(json_escape "$REQUIRED_GATE")",
   "output_schema": "$(json_escape "$OUTPUT_SCHEMA_RELATIVE")",
+  "schema_validation_mode": "$(json_escape "$SCHEMA_VALIDATION_MODE")",
   "phase": "$(json_escape "${CURRENT_PHASE:-unknown}")",
   "last_gate_passed": "$(json_escape "${LAST_GATE:-none}")",
   "prompt_file": "$(json_escape "$PROMPT_FILE")",
   "decision_file": "$(json_escape "$DECISION_FILE")",
+  "contract_validation_file": "$(json_escape "$CONTRACT_VALIDATION_FILE")",
   "prompt_hash": "$(json_escape "$PROMPT_HASH")",
   "context_files": $(json_array_from_args "${CONTEXT_FILES_CANONICAL[@]}")
 }
@@ -595,30 +615,66 @@ if [[ "$STRICT_SCHEMA" != "true" ]]; then
   exit "$EXIT_OK"
 fi
 
-JSON_BLOCK="$(awk '/^```json$/{flag=1; next} /^```$/{flag=0} flag' "$BODY_FILE" || true)"
-
-if [[ -z "$JSON_BLOCK" ]]; then
-  log_line "SCHEMA_VIOLATION session=$SESSION_ID correlation=$CORRELATION_ID reason=no_json_block"
-  echo "ERROR: response missing required JSON block" >&2
-  exit "$EXIT_SCHEMA_VIOLATION"
-fi
-
-REQUIRED_KEYS=(schema_version agent summary decisions risks open_questions action_items requested_context status needs_human_decision confidence)
-for key in "${REQUIRED_KEYS[@]}"; do
-  if command -v jq >/dev/null 2>&1; then
-    if ! printf '%s\n' "$JSON_BLOCK" | jq -e "has(\"$key\")" >/dev/null 2>&1; then
-      log_line "SCHEMA_VIOLATION session=$SESSION_ID correlation=$CORRELATION_ID missing_key=$key"
-      echo "ERROR: response JSON missing required key: $key" >&2
-      exit "$EXIT_SCHEMA_VIOLATION"
-    fi
-  else
-    if ! printf '%s\n' "$JSON_BLOCK" | grep -q "\"$key\""; then
-      log_line "SCHEMA_VIOLATION session=$SESSION_ID correlation=$CORRELATION_ID missing_key=$key"
-      echo "ERROR: response JSON missing required key: $key" >&2
-      exit "$EXIT_SCHEMA_VIOLATION"
-    fi
+if command -v node >/dev/null 2>&1 && [[ -f "$ROOT_DIR/scripts/check_response_contract.mjs" ]]; then
+  VALIDATION_CMD=(node "$ROOT_DIR/scripts/check_response_contract.mjs" --body-file "$BODY_FILE")
+  if [[ -n "$OUTPUT_SCHEMA_FILE" ]]; then
+    VALIDATION_CMD+=(--schema-file "$OUTPUT_SCHEMA_FILE")
   fi
-done
+  if [[ "$STRICT_TYPE_CHECKS_DISABLED" == "true" ]]; then
+    VALIDATION_CMD+=(--disable-type-checks)
+  fi
+
+  set +e
+  "${VALIDATION_CMD[@]}" >"$CONTRACT_VALIDATION_FILE"
+  VRC=$?
+  set -e
+
+  if [[ "$VRC" -ne 0 ]]; then
+    ERROR_KIND="$(sed -n 's/.*"error_kind": "\(.*\)",/\1/p' "$CONTRACT_VALIDATION_FILE" | head -n 1)"
+    ERROR_MESSAGE="$(sed -n 's/.*"message": "\(.*\)",/\1/p' "$CONTRACT_VALIDATION_FILE" | head -n 1)"
+    if [[ "$ERROR_KIND" == "type_mismatch" ]]; then
+      log_line "SCHEMA_TYPE_MISMATCH session=$SESSION_ID correlation=$CORRELATION_ID cli=$CLI agent=$AGENT_ROLE detail=$(json_escape "$ERROR_MESSAGE")"
+      echo "ERROR: ${ERROR_MESSAGE:-response JSON has a type mismatch}" >&2
+      exit "$EXIT_SCHEMA_TYPE_MISMATCH"
+    fi
+    log_line "SCHEMA_VIOLATION session=$SESSION_ID correlation=$CORRELATION_ID cli=$CLI agent=$AGENT_ROLE reason=$(json_escape "${ERROR_KIND:-unknown}") detail=$(json_escape "$ERROR_MESSAGE")"
+    echo "ERROR: ${ERROR_MESSAGE:-response contract validation failed}" >&2
+    exit "$EXIT_SCHEMA_VIOLATION"
+  fi
+
+  if grep -q '"schema_warning": true' "$CONTRACT_VALIDATION_FILE"; then
+    SCHEMA_SUMMARY="$(sed -n 's/.*"schema_mismatch_summary": "\(.*\)",/\1/p' "$CONTRACT_VALIDATION_FILE" | head -n 1)"
+    log_line "SCHEMA_WARNING session=$SESSION_ID correlation=$CORRELATION_ID cli=$CLI agent=$AGENT_ROLE summary=$(json_escape "$SCHEMA_SUMMARY")"
+    printf '{"session_id":"%s","correlation_id":"%s","agent":"%s","cli":"%s","schema":"%s","summary":"%s"}\n' \
+      "$SESSION_ID" "$CORRELATION_ID" "$AGENT_ROLE" "$CLI" "$OUTPUT_SCHEMA_RELATIVE" "$(json_escape "$SCHEMA_SUMMARY")" >> "$LOG_ROOT/schema-shadow.jsonl"
+    echo "WARNING: schema shadow mismatch: ${SCHEMA_SUMMARY:-schema mismatch detected}" >&2
+  fi
+else
+  JSON_BLOCK="$(awk '/^```json$/{flag=1; next} /^```$/{flag=0} flag' "$BODY_FILE" || true)"
+
+  if [[ -z "$JSON_BLOCK" ]]; then
+    log_line "SCHEMA_VIOLATION session=$SESSION_ID correlation=$CORRELATION_ID reason=no_json_block"
+    echo "ERROR: response missing required JSON block" >&2
+    exit "$EXIT_SCHEMA_VIOLATION"
+  fi
+
+  REQUIRED_KEYS=(schema_version agent summary decisions risks open_questions action_items requested_context status needs_human_decision confidence)
+  for key in "${REQUIRED_KEYS[@]}"; do
+    if command -v jq >/dev/null 2>&1; then
+      if ! printf '%s\n' "$JSON_BLOCK" | jq -e "has(\"$key\")" >/dev/null 2>&1; then
+        log_line "SCHEMA_VIOLATION session=$SESSION_ID correlation=$CORRELATION_ID missing_key=$key"
+        echo "ERROR: response JSON missing required key: $key" >&2
+        exit "$EXIT_SCHEMA_VIOLATION"
+      fi
+    else
+      if ! printf '%s\n' "$JSON_BLOCK" | grep -q "\"$key\""; then
+        log_line "SCHEMA_VIOLATION session=$SESSION_ID correlation=$CORRELATION_ID missing_key=$key"
+        echo "ERROR: response JSON missing required key: $key" >&2
+        exit "$EXIT_SCHEMA_VIOLATION"
+      fi
+    fi
+  done
+fi
 
 log_line "OK session=$SESSION_ID correlation=$CORRELATION_ID cli=$CLI agent=$AGENT_ROLE prompt_hash=$PROMPT_HASH response_mode=$RESPONSE_MODE strict_schema=true"
 cat "$BODY_FILE"

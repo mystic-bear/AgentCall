@@ -81,6 +81,7 @@
 - 완료: global friction work-order drafted. Claude/Gemini review를 바탕으로 runtime root 및 gate 완화 방향 문서화
 - 완료: global friction implementation. tmp fallback default, `side-effects` 해석, read-only gate relaxation, `test-hello` smoke 완화, validator/install test 보강
 - 완료: post-implementation Claude review 반영. stale README, static temp path, invalid `side-effects` validation, work-order wording 정밀화
+- 완료: schema validation shadow rollout. strict path 최소 타입 체크, shadow validation helper, warning artifact, regression test, README/AGENTS 정책 반영
 - 남음: 브라우저 수준 자동화 테스트는 아직 없음. 현재는 로직 테스트 + 정적서버 smoke 수준 검증까지 완료
 
 ## Update Log
@@ -100,3 +101,4 @@
 - 2026-04-23 09:40 +09:00: `~/.codex/AgentCall`로 재설치 후 global validator와 live smoke를 다시 통과. `subagent-host` active install은 제거되고 backup 흔적만 남김.
 - 2026-04-23 21:20 +09:00: stale npm `codex` wrapper를 백업하고 npm global install을 복구. project-local `local_codex.sh`를 제거하고, global AgentCall friction 완화 작업지시서를 Claude/Gemini 검토 기반으로 추가.
 - 2026-04-23 21:35 +09:00: lazy tmp fallback, `side-effects` 기반 gate 완화, global validator/install check 보강, work-order 대비 체크리스트 작성, Claude post-implementation review 반영 완료.
+- 2026-04-24 11:15 +09:00: staged schema validation work order 작성 후 Claude/Gemini 재검토 반영. strict path 최소 타입 체크와 `output-schema` shadow validation helper 추가, `schema-shadow.jsonl` 경고 기록과 회귀 테스트 반영.

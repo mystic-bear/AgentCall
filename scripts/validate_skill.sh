@@ -31,6 +31,7 @@ required_files=(
   "$ROOT_DIR/.agents/test-hello.md"
   "$ROOT_DIR/scripts/call_cli.sh"
   "$ROOT_DIR/scripts/extract_response_body.mjs"
+  "$ROOT_DIR/scripts/check_response_contract.mjs"
   "$ROOT_DIR/scripts/adapters/claude.sh"
   "$ROOT_DIR/scripts/adapters/codex.sh"
   "$ROOT_DIR/scripts/adapters/gemini.sh"
@@ -76,9 +77,15 @@ bash -n \
 
 if command -v node >/dev/null 2>&1; then
   if node --check "$ROOT_DIR/scripts/extract_response_body.mjs" >/dev/null 2>&1; then
-    printf 'OK   node syntax\n'
+    printf 'OK   node syntax extract_response_body\n'
   else
-    printf 'FAIL node syntax\n'
+    printf 'FAIL node syntax extract_response_body\n'
+    failures=$((failures + 1))
+  fi
+  if node --check "$ROOT_DIR/scripts/check_response_contract.mjs" >/dev/null 2>&1; then
+    printf 'OK   node syntax check_response_contract\n'
+  else
+    printf 'FAIL node syntax check_response_contract\n'
     failures=$((failures + 1))
   fi
 else

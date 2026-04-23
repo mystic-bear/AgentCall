@@ -16,6 +16,7 @@
 - existing agent markdown을 깨지 않는 최소 호환 레이어 포함
 - 전역 fallback runtime은 기본적으로 tmp 기반이라 sandbox friction을 줄임
 - `AGENTCALL_PERSIST_GLOBAL=1`일 때만 `~/.codex/AgentCall/runtime-data/`에 persistent log/state 사용
+- strict path는 full JSON Schema hard fail 대신 minimal type checks + shadow validation을 사용
 
 ## Current Status
 
@@ -258,6 +259,42 @@ strict schema가 꼭 필요할 때:
 4. `AGENTCALL_PERSIST_GLOBAL=1`일 때만 `~/.codex/AgentCall/runtime-data/<project-key>/`를 사용
 5. `side-effects: none` 인 agent는 read-only delegation으로 간주하고 gate metadata만 유지
 
+## Contract Model
+
+AgentCall은 의도적으로 contract를 두 층으로 나눕니다.
+
+- `soft contract`
+  - 대상: `review`, `design`, `analysis`
+  - 형식: Markdown/text-first
+  - 목적: 사람이 읽기 좋은 응답 우선
+- `hard-ish contract`
+  - 대상: `synthesis`, `smoke`
+  - 형식: `json` fenced block + 공통 필수 키 + 최소 타입 체크
+
+중요한 점은, 현재 strict path도 **full JSON Schema hard fail** 이 아니라는 것입니다.
+
+현재 strict path 최소 타입 체크:
+
+- `confidence`: number
+- `needs_human_decision`: boolean
+- `decisions`: array
+- `risks`: array
+- `open_questions`: array
+- `action_items`: array
+- `requested_context`: array
+
+`output-schema`가 있더라도 초기 운영은 enforcement보다 **shadow validation** 이 우선입니다.
+
+- mismatch는 `stderr` warning과 session log로 남깁니다
+- raw body는 그대로 유지합니다
+- mismatch 이벤트는 `schema-shadow.jsonl`에 append 됩니다
+
+strict path rollback이 필요하면 아래 env로 최소 타입 체크를 잠시 끌 수 있습니다.
+
+```bash
+AGENTCALL_DISABLE_STRICT_TYPE_CHECKS=1
+```
+
 현재 curated global agents:
 
 - `architect`
@@ -291,6 +328,13 @@ strict schema 해석 순서:
 5. role-derived defaults
 6. otherwise `false`
 
+strict contract의 현재 의미:
+
+1. `json` fenced block 존재
+2. 공통 필수 키 존재
+3. 최소 타입 체크 통과
+4. `output-schema`가 있으면 shadow validation 수행
+
 ## Safety Model
 
 이 저장소는 아래 guard를 포함합니다.
@@ -301,6 +345,8 @@ strict schema 해석 순서:
 - project root 바깥 경로 차단
 - output-schema path 검증
 - response contract 제어
+- strict path minimal type checks
+- shadow schema warning 기록 (`stderr`, wrapper log, `schema-shadow.jsonl`)
 - frontmatter 기반 timeout/gate 해석
 - read-only agent는 `side-effects: none`으로 명시
 

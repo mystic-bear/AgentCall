@@ -28,6 +28,18 @@ Strict schema resolution:
 5. role-derived defaults for `design-synthesizer` and `test-hello`
 6. otherwise `false`
 
+Strict contract handling:
+
+- `review/design/analysis`는 soft contract를 유지한다.
+- `synthesis/smoke`는 hard-ish contract를 사용한다.
+- hard-ish contract의 현재 의미는 full JSON Schema hard fail이 아니다.
+- 현재 strict path는 아래만 hard requirement로 본다:
+  - `json` fenced block
+  - 공통 필수 키
+  - load-bearing 최소 타입 체크
+- `output-schema`가 있으면 shadow validation을 수행하되 초기 운영은 fail-open with warning이다.
+- strict path rollback이 필요하면 `AGENTCALL_DISABLE_STRICT_TYPE_CHECKS=1`로 최소 타입 체크를 잠시 비활성화할 수 있다.
+
 Gate resolution:
 
 - Gate rank is `none/0 < A < B < C < S`.
