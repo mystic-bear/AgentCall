@@ -38,7 +38,7 @@ assert_grep() {
 }
 
 assert_file ".docs/ai-workflow/implementation-checklist.md"
-assert_file "local-skills/subagent-host/SKILL.md"
+assert_file "local-skills/AgentCall/SKILL.md"
 assert_file "scripts/run_gate_s_checks.sh"
 assert_file ".docs/ai-workflow/test-cases/gate-s-report.md"
 assert_file ".agents/test-hello.md"
@@ -50,10 +50,10 @@ if [[ -f "$ROOT_DIR/.docs/ai-workflow/implementation-checklist.md" ]]; then
   assert_grep "^## Phase 4" ".docs/ai-workflow/implementation-checklist.md"
 fi
 
-if [[ -f "$ROOT_DIR/local-skills/subagent-host/SKILL.md" ]]; then
-  assert_grep "^name: subagent-host" "local-skills/subagent-host/SKILL.md"
-  assert_grep "When NOT to Use" "local-skills/subagent-host/SKILL.md"
-  assert_grep "Safety Gates" "local-skills/subagent-host/SKILL.md"
+if [[ -f "$ROOT_DIR/local-skills/AgentCall/SKILL.md" ]]; then
+  assert_grep "^name: AgentCall" "local-skills/AgentCall/SKILL.md"
+  assert_grep "When NOT to Use" "local-skills/AgentCall/SKILL.md"
+  assert_grep "Safety Gates" "local-skills/AgentCall/SKILL.md"
 fi
 
 if [[ -f "$ROOT_DIR/scripts/run_gate_s_checks.sh" ]]; then

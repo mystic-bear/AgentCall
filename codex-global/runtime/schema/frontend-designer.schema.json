@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Frontend Designer Output",
+  "allOf": [
+    { "$ref": "common.schema.json" },
+    {
+      "type": "object",
+      "required": ["design_principles"],
+      "properties": {
+        "design_principles": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "additionalProperties": true
+    }
+  ]
+}

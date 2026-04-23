@@ -74,6 +74,9 @@
 - 완료: dry-run/debug 로그와 production 로그 분리. wrapper 기본 사용을 `--execute` 중심으로 전환하고 기존 혼합 로그를 `production/debug/legacy-wrapper.log`로 정리
 - 완료: review-driven hardening round. `requires-human-gate` 실행 enforcement, `timeout-sec`/`output-schema` 해석, Codex prompt-file transport, secret scan 확장, canonical context logging 반영
 - 완료: follow-up polish round. role schema `allOf` 일관화, Codex test portability 개선, gate semantics 문서화, Gemini read-only live smoke 확인
+- 완료: global Codex rollout basis. reviewer-refined work order, `codex-global/` package, installer/validator, `/tmp` install validation, actual `~/.codex` install 반영
+- 완료: global naming alignment. local/global skill entry를 `AgentCall`로 통일하고, legacy managed `subagent-host` install을 migration 대상으로 정리
+- 완료: renamed global validation. `~/.codex/AgentCall` 기준 dry-run/live-smoke 검증 완료, active legacy path는 제거되고 backup만 유지
 - 남음: 브라우저 수준 자동화 테스트는 아직 없음. 현재는 로직 테스트 + 정적서버 smoke 수준 검증까지 완료
 
 ## Update Log
@@ -88,3 +91,6 @@
 - 2026-04-22 15:31 +09:00: `call_cli.sh` 기본 모드를 execute로 전환하고 dry-run은 debug bucket으로 분리. 기존 로그도 `logs/production`, `logs/debug`, `legacy-wrapper.log` 구조로 재정리.
 - 2026-04-22 17:35 +09:00: review-driven hardening 반영. secret scan, gate enforcement, timeout/schema enforcement, prompt transport, validation/docs 보강 완료.
 - 2026-04-22 18:05 +09:00: 후속 보완 반영. schema composition 일관화, 테스트 이식성 수정, gate 의미 문서화, Gemini `--approval-mode plan` 실환경 smoke 성공.
+- 2026-04-23 07:35 +09:00: Claude/Gemini 리뷰 반영 후 global rollout work order 개정. `codex-global/` 패키지와 installer/validator 구현, `/tmp` install test 통과, 실제 `~/.codex` install 반영.
+- 2026-04-23 09:25 +09:00: 전역 skill/runtime 이름을 `AgentCall`로 통일. installer/validator 경로와 문서를 갱신하고, 외부 프로젝트에서 확인된 Claude/Gemini smoke 결과를 rollout 근거로 기록.
+- 2026-04-23 09:40 +09:00: `~/.codex/AgentCall`로 재설치 후 global validator와 live smoke를 다시 통과. `subagent-host` active install은 제거되고 backup 흔적만 남김.

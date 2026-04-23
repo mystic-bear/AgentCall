@@ -3,24 +3,28 @@
 <!-- 아래 필드는 모두 필수. 순서 변경 금지 -->
 
 **Skill Version**: 1.2
-**Current Phase**: post-review
-**Current Owner**: human
+**Current Phase**: global-rollout-basis
+**Current Owner**: codex
 **Next Owner**: human
 **Approved By Human**: partial
 **Last Gate Passed**: S
 **Current Delegation Depth**: 0
-**Last Inputs**: follow-up hardening refinements plus a request to verify that the current Gemini read-only mode still works in live execution
-**Last Outputs**: schema consistency cleanup, portability/docs refinements, and a live Gemini smoke run succeeding under `--approval-mode plan`
-**Open Questions**: which legacy field variants must be supported first, which second repo should be used for cross-repo dry validation, and whether to add browser-level automation beyond logic tests and static serving smoke
+**Last Inputs**: rename the global skill/runtime from `subagent-host` to `AgentCall` and record the externally confirmed Claude/Gemini smoke results
+**Last Outputs**: renamed local/global skill entries to `AgentCall`, migration-aware installer/validator updates, rollout docs updated with external smoke evidence, and actual `~/.codex/AgentCall` install plus live smoke validation
+**Open Questions**: which legacy field variants must be supported first, whether global fallback should stay read-only-only longer, and whether a faster live smoke path than external CLI full execution should be added
 **Blockers**: none
 **Last Exit Code**: 0
 **Retry Count**: 0
-**Last Updated**: 2026-04-22T18:05:00+09:00
+**Last Updated**: 2026-04-23T09:40:00+09:00
 **Session ID**: bootstrap-local-pilot
 **Correlation ID**: bootstrap-local-pilot
 
 ## Decisions Log (append-only, 최신이 위)
 
+- 2026-04-23: Global Codex rollout should use a repo-native package plus installer model, not a thin shim tied to the source repo path.
+- 2026-04-23: The first global basis must ship with a minimal compatibility layer and a global fallback runtime-data path rather than assuming project-local AgentCall state exists.
+- 2026-04-23: The global skill/runtime identity should be `AgentCall`, and the previous managed `subagent-host` install should be migrated out of the active skill list during reinstall.
+- 2026-04-23: The renamed global install must be proven after migration, so actual `~/.codex/AgentCall` validation and one live smoke run are part of completion.
 - 2026-04-22: Wrapper hardening should enforce frontmatter timeout/gate/schema metadata, canonicalize logged context paths, move Codex prompt transport to stdin/prompt-file, and keep review/design outputs text-first by default.
 - 2026-04-22: Gemini read-only delegation should continue to run through `--approval-mode plan`, and this mode must be proven by a live smoke execution rather than assumed from CLI help alone.
 - 2026-04-22: The next implementation target should be a thin compatibility layer that preserves existing agent markdown files and normalizes them at load time instead of replacing them.
@@ -50,3 +54,6 @@
 - 2026-04-22T16:12: post-review → post-review (Claude draft received and finalized into existing-agent-md compatibility design doc)
 - 2026-04-22T17:35: post-review → post-review (review-driven wrapper hardening completed: gate enforcement, secret scan expansion, prompt-file Codex transport, validation/doc updates)
 - 2026-04-22T18:05: post-review → post-review (follow-up refinements applied and live Gemini smoke test passed under current read-only adapter mode)
+- 2026-04-23T07:35: post-review → global-rollout-basis (global Codex rollout work order revised from Claude/Gemini review, `codex-global/` package created, and installer applied to `~/.codex`)
+- 2026-04-23T09:25: global-rollout-basis → global-rollout-basis (global skill/runtime renamed to `AgentCall`, installer prepared to migrate legacy managed `subagent-host`, and external smoke evidence recorded)
+- 2026-04-23T09:40: global-rollout-basis → global-rollout-basis (renamed `AgentCall` install applied to `~/.codex`, legacy active path removed, and live smoke validation passed)

@@ -36,8 +36,10 @@
   - wrapper, adapter, validation, gate check
 - `.docs/ai-workflow/`
   - 상태 파일, 체크리스트, 스키마, 테스트 케이스, 운영 문서
-- `local-skills/subagent-host/`
+- `local-skills/AgentCall/`
   - project-local host skill 문서
+- `codex-global/`
+  - Codex 전역 홈 설치용 global package
 - `tests/`
   - wrapper/contract/model/logging 검증 스크립트
 
@@ -198,6 +200,53 @@ Codex prompt-file 전달 점검:
 ```bash
 bash ./tests/codex_promptfile_checks.sh
 ```
+
+global package install 검증:
+
+```bash
+bash ./tests/global_codex_install_checks.sh
+```
+
+## Global Rollout Basis
+
+전역 Codex 반영용 basis는 `codex-global/` 아래에 분리해 두었습니다.
+
+- `codex-global/skills/AgentCall/`
+  - 전역 Codex skill entry
+- `codex-global/runtime/`
+  - 전역 curated agents, schema, wrapper, adapters, fallback state template
+- `scripts/install_global_codex_host.sh`
+  - `~/.codex` 설치/업데이트 스크립트
+- `scripts/validate_global_codex_host.sh`
+  - 전역 install 검증 스크립트
+
+기본 설치:
+
+```bash
+./scripts/install_global_codex_host.sh
+```
+
+설치 검증:
+
+```bash
+./scripts/validate_global_codex_host.sh
+```
+
+현재 전역 설치 대상 이름은 `AgentCall`입니다.
+
+- skill entry: `~/.codex/skills/AgentCall/SKILL.md`
+- runtime root: `~/.codex/AgentCall/`
+
+추가로, 다른 프로젝트에서 실제 smoke 확인된 결과도 있습니다.
+
+- Claude: `--agent architect` 응답 성공
+- Gemini: `--agent frontend-designer` 응답 성공
+- `test-hello`는 `requires-human-gate: S` 때문에 smoke 용도로는 의도대로 차단됨
+
+그리고 이름 변경 후에도 새 경로 기준 검증을 다시 통과했습니다.
+
+- `./scripts/validate_global_codex_host.sh` 통과
+- `./scripts/validate_global_codex_host.sh --live-smoke` 통과
 
 ## Common Commands
 

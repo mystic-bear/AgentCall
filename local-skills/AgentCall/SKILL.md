@@ -1,5 +1,5 @@
 ---
-name: subagent-host
+name: AgentCall
 description: Use when the current repository should delegate bounded work to another AI CLI through the local wrapper with explicit gates, schema checks, and safety controls
 max-delegation-depth: 1
 default-mode: read-only
@@ -8,7 +8,7 @@ required-state-file: .docs/ai-workflow/state.md
 required-wrapper: scripts/call_cli.sh
 ---
 
-# Subagent Host
+# AgentCall
 
 ## Overview
 
