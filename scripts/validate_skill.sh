@@ -30,7 +30,6 @@ required_files=(
   "$ROOT_DIR/.agents/bug-reviewer.md"
   "$ROOT_DIR/.agents/test-hello.md"
   "$ROOT_DIR/scripts/call_cli.sh"
-  "$ROOT_DIR/scripts/local_codex.sh"
   "$ROOT_DIR/scripts/extract_response_body.mjs"
   "$ROOT_DIR/scripts/adapters/claude.sh"
   "$ROOT_DIR/scripts/adapters/codex.sh"
@@ -68,7 +67,6 @@ done
 
 bash -n \
   "$ROOT_DIR/scripts/call_cli.sh" \
-  "$ROOT_DIR/scripts/local_codex.sh" \
   "$ROOT_DIR/scripts/validate_skill.sh" \
   "$ROOT_DIR/scripts/adapters/claude.sh" \
   "$ROOT_DIR/scripts/adapters/codex.sh" \

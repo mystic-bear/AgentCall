@@ -9,9 +9,8 @@ STDERR_FILE="$4"
 ALLOW_WRITES="${5:-false}"
 MODEL_NAME="${6:-}"
 OUTPUT_SCHEMA_FILE="${7:-}"
-LOCAL_CODEX_SCRIPT="$ROOT_DIR/scripts/local_codex.sh"
 
-CMD=(timeout "$TIMEOUT_SEC" "$LOCAL_CODEX_SCRIPT" exec)
+CMD=(timeout "$TIMEOUT_SEC" codex exec --skip-git-repo-check)
 if [[ -n "$MODEL_NAME" ]]; then
   CMD+=(--model "$MODEL_NAME")
 fi
@@ -22,4 +21,4 @@ if [[ "$ALLOW_WRITES" == "true" ]]; then
   CMD+=(--dangerously-bypass-approvals-and-sandbox)
 fi
 
-"${CMD[@]}" --prompt-file "$PROMPT_FILE" >"$STDOUT_FILE" 2>"$STDERR_FILE"
+"${CMD[@]}" - <"$PROMPT_FILE" >"$STDOUT_FILE" 2>"$STDERR_FILE"

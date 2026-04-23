@@ -9,18 +9,20 @@
 **Approved By Human**: partial
 **Last Gate Passed**: S
 **Current Delegation Depth**: 0
-**Last Inputs**: rename the global skill/runtime from `subagent-host` to `AgentCall` and record the externally confirmed Claude/Gemini smoke results
-**Last Outputs**: renamed local/global skill entries to `AgentCall`, migration-aware installer/validator updates, rollout docs updated with external smoke evidence, and actual `~/.codex/AgentCall` install plus live smoke validation
-**Open Questions**: which legacy field variants must be supported first, whether global fallback should stay read-only-only longer, and whether a faster live smoke path than external CLI full execution should be added
+**Last Inputs**: complete the global AgentCall friction work order end-to-end, create a checklist against the work order, get one Claude review, and prepare the final GitHub update
+**Last Outputs**: lazy tmp fallback and side-effect-based gate control implemented, checklist created, Claude review incorporated, npm/global Codex conflict resolved, and docs/tests aligned with the completed work order
+**Open Questions**: how much audit logging read-only global calls should keep, whether `/tmp` should remain the long-term default over workspace-local hidden state, and whether `requires-human-gate` should eventually be renamed after the side-effect split settles
 **Blockers**: none
 **Last Exit Code**: 0
 **Retry Count**: 0
-**Last Updated**: 2026-04-23T09:40:00+09:00
+**Last Updated**: 2026-04-23T21:35:00+09:00
 **Session ID**: bootstrap-local-pilot
 **Correlation ID**: bootstrap-local-pilot
 
 ## Decisions Log (append-only, 최신이 위)
 
+- 2026-04-23: The next global AgentCall hardening round should default fallback runtime writes to a non-global writable root and use side-effect risk, not lifecycle rank alone, to decide execution blocking.
+- 2026-04-23: The global friction round is complete when lazy tmp fallback, side-effect-based gate enforcement, checklist comparison, and one Claude post-implementation review have all been recorded together.
 - 2026-04-23: Global Codex rollout should use a repo-native package plus installer model, not a thin shim tied to the source repo path.
 - 2026-04-23: The first global basis must ship with a minimal compatibility layer and a global fallback runtime-data path rather than assuming project-local AgentCall state exists.
 - 2026-04-23: The global skill/runtime identity should be `AgentCall`, and the previous managed `subagent-host` install should be migrated out of the active skill list during reinstall.
@@ -58,3 +60,5 @@
 - 2026-04-23T07:35: post-review → global-rollout-basis (global Codex rollout work order revised from Claude/Gemini review, `codex-global/` package created, and installer applied to `~/.codex`)
 - 2026-04-23T09:25: global-rollout-basis → global-rollout-basis (global skill/runtime renamed to `AgentCall`, installer prepared to migrate legacy managed `subagent-host`, and external smoke evidence recorded)
 - 2026-04-23T09:40: global-rollout-basis → global-rollout-basis (renamed `AgentCall` install applied to `~/.codex`, legacy active path removed, and live smoke validation passed)
+- 2026-04-23T21:20: global-rollout-basis → global-rollout-basis (npm/global Codex install cleaned up, project-local local-Codex dependency removed, and global friction work order drafted from Claude/Gemini review)
+- 2026-04-23T21:35: global-rollout-basis → global-rollout-basis (lazy tmp fallback and side-effect-based gate model implemented, checklist written, Claude review applied, and validation suite re-passed)

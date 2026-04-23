@@ -12,6 +12,7 @@ timeout-sec: 600
 max-context-files: 5
 max-context-bytes: 200000
 allow-recursion: false
+side-effects: none
 requires-human-gate: A
 ---
 

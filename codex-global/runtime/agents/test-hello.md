@@ -12,7 +12,8 @@ timeout-sec: 180
 max-context-files: 2
 max-context-bytes: 50000
 allow-recursion: false
-requires-human-gate: S
+side-effects: none
+requires-human-gate: none
 ---
 
 # Test Hello

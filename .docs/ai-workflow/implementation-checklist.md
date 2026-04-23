@@ -77,6 +77,10 @@
 - 완료: global Codex rollout basis. reviewer-refined work order, `codex-global/` package, installer/validator, `/tmp` install validation, actual `~/.codex` install 반영
 - 완료: global naming alignment. local/global skill entry를 `AgentCall`로 통일하고, legacy managed `subagent-host` install을 migration 대상으로 정리
 - 완료: renamed global validation. `~/.codex/AgentCall` 기준 dry-run/live-smoke 검증 완료, active legacy path는 제거되고 backup만 유지
+- 완료: local Codex cleanup. project-local `local_codex.sh` 제거, Codex adapter를 direct `codex exec`로 단순화, npm global Codex wrapper conflict 해소
+- 완료: global friction work-order drafted. Claude/Gemini review를 바탕으로 runtime root 및 gate 완화 방향 문서화
+- 완료: global friction implementation. tmp fallback default, `side-effects` 해석, read-only gate relaxation, `test-hello` smoke 완화, validator/install test 보강
+- 완료: post-implementation Claude review 반영. stale README, static temp path, invalid `side-effects` validation, work-order wording 정밀화
 - 남음: 브라우저 수준 자동화 테스트는 아직 없음. 현재는 로직 테스트 + 정적서버 smoke 수준 검증까지 완료
 
 ## Update Log
@@ -94,3 +98,5 @@
 - 2026-04-23 07:35 +09:00: Claude/Gemini 리뷰 반영 후 global rollout work order 개정. `codex-global/` 패키지와 installer/validator 구현, `/tmp` install test 통과, 실제 `~/.codex` install 반영.
 - 2026-04-23 09:25 +09:00: 전역 skill/runtime 이름을 `AgentCall`로 통일. installer/validator 경로와 문서를 갱신하고, 외부 프로젝트에서 확인된 Claude/Gemini smoke 결과를 rollout 근거로 기록.
 - 2026-04-23 09:40 +09:00: `~/.codex/AgentCall`로 재설치 후 global validator와 live smoke를 다시 통과. `subagent-host` active install은 제거되고 backup 흔적만 남김.
+- 2026-04-23 21:20 +09:00: stale npm `codex` wrapper를 백업하고 npm global install을 복구. project-local `local_codex.sh`를 제거하고, global AgentCall friction 완화 작업지시서를 Claude/Gemini 검토 기반으로 추가.
+- 2026-04-23 21:35 +09:00: lazy tmp fallback, `side-effects` 기반 gate 완화, global validator/install check 보강, work-order 대비 체크리스트 작성, Claude post-implementation review 반영 완료.

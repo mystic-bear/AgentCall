@@ -45,7 +45,8 @@ $HOME/.codex/AgentCall/scripts/global_call_cli.sh --agent architect --prompt "..
 If the current project does not have a local AgentCall state/runtime, the global wrapper uses:
 
 - curated global agents
-- global fallback state
-- global fallback logs under `$HOME/.codex/AgentCall/runtime-data/<project-key>/`
+- a tmp-scoped fallback runtime by default
+- persistent global fallback logs under `$HOME/.codex/AgentCall/runtime-data/<project-key>/` only when explicitly opted in
+- read-only agents that skip lifecycle gate blocking when `side-effects: none`
 
 In fallback mode, the safe default is read-only review/design delegation first.

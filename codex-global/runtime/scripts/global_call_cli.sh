@@ -46,7 +46,8 @@ readonly EXIT_USER_ERROR=5
 readonly EXIT_RECURSION_BLOCKED=6
 readonly EXIT_SECRETS_VIOLATION=7
 
-LOG_BASE="$RUNTIME_ROOT/runtime-data/bootstrap/logs"
+TMP_AGENTCALL_ROOT="${TMPDIR:-/tmp}/agentcall"
+LOG_BASE="$TMP_AGENTCALL_ROOT/bootstrap/logs"
 LOG_ROOT="$LOG_BASE"
 WRAPPER_LOG_FILE="$LOG_BASE/wrapper-bootstrap.log"
 
@@ -172,6 +173,7 @@ gate_at_least() {
 
 state_value() {
   local key="$1"
+  [[ -n "${STATE_FILE:-}" && -f "$STATE_FILE" ]] || return 0
   awk -v prefix="**${key}**: " 'index($0, prefix) == 1 { print substr($0, length(prefix) + 1); exit }' "$STATE_FILE"
 }
 
@@ -192,11 +194,13 @@ has_secrets() {
 
 resolve_project_root() {
   if [[ -n "$PROJECT_ROOT_OVERRIDE" ]]; then
+    [[ -d "$PROJECT_ROOT_OVERRIDE" ]] || { echo "ERROR: project root not found: $PROJECT_ROOT_OVERRIDE" >&2; exit "$EXIT_USER_ERROR"; }
     normalize_path "$(cd "$PROJECT_ROOT_OVERRIDE" && pwd -L)"
     return
   fi
-  if git -C "$PWD" rev-parse --show-toplevel >/tmp/agentcall_global_git_root 2>/dev/null; then
-    normalize_path "$(cat /tmp/agentcall_global_git_root)"
+  local git_root=""
+  if git_root="$(git -C "$PWD" rev-parse --show-toplevel 2>/dev/null)"; then
+    normalize_path "$git_root"
     return
   fi
   normalize_path "$PWD"
@@ -268,6 +272,7 @@ resolve_agent_file() {
 
 ensure_fallback_state() {
   [[ -f "$STATE_TEMPLATE" ]] || { echo "ERROR: missing fallback state template" >&2; exit "$EXIT_USER_ERROR"; }
+  [[ -n "${STATE_FILE:-}" ]] || return 0
   mkdir -p "$(dirname "$STATE_FILE")"
   if [[ ! -f "$STATE_FILE" ]]; then
     sed "s/__LAST_UPDATED__/$(date -Iseconds)/" "$STATE_TEMPLATE" > "$STATE_FILE"
@@ -301,6 +306,36 @@ root_relative_path() {
   fi
 }
 
+resolve_runtime_root_mode() {
+  if [[ -n "${AGENTCALL_LOG_ROOT:-}" ]]; then
+    printf 'override-log'
+  elif [[ -n "${AGENTCALL_RUNTIME_ROOT:-}" ]]; then
+    printf 'override-runtime'
+  elif [[ "${AGENTCALL_PERSIST_GLOBAL:-0}" == "1" ]]; then
+    printf 'global-persistent'
+  else
+    printf 'tmp-fallback'
+  fi
+}
+
+resolve_fallback_root() {
+  local project_key="$1"
+  case "$(resolve_runtime_root_mode)" in
+    override-log)
+      printf '%s/%s\n' "${AGENTCALL_LOG_ROOT%/}" "$project_key"
+      ;;
+    override-runtime)
+      printf '%s/%s\n' "${AGENTCALL_RUNTIME_ROOT%/}" "$project_key"
+      ;;
+    global-persistent)
+      printf '%s/runtime-data/%s\n' "$RUNTIME_ROOT" "$project_key"
+      ;;
+    *)
+      printf '%s/%s\n' "$TMP_AGENTCALL_ROOT" "$project_key"
+      ;;
+  esac
+}
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --cli) CLI="$2"; shift 2 ;;
@@ -329,21 +364,6 @@ PROJECT_ROOT="$(resolve_project_root)"
 PROJECT_KEY="$(project_key "$PROJECT_ROOT")"
 LOCAL_STATE_FILE="$PROJECT_ROOT/.docs/ai-workflow/state.md"
 LOCAL_LOG_BASE="$PROJECT_ROOT/.docs/ai-workflow/logs"
-FALLBACK_ROOT="$RUNTIME_ROOT/runtime-data/$PROJECT_KEY"
-FALLBACK_STATE_FILE="$FALLBACK_ROOT/state.md"
-FALLBACK_LOG_BASE="$FALLBACK_ROOT/logs"
-
-if [[ -f "$LOCAL_STATE_FILE" ]]; then
-  STATE_FILE="$LOCAL_STATE_FILE"
-  LOG_BASE="$LOCAL_LOG_BASE"
-else
-  STATE_FILE="$FALLBACK_STATE_FILE"
-  LOG_BASE="$FALLBACK_LOG_BASE"
-  ensure_fallback_state
-fi
-
-LOG_ROOT="$LOG_BASE"
-WRAPPER_LOG_FILE="$LOG_BASE/wrapper-bootstrap.log"
 
 AGENT_FILE="$(resolve_agent_file "$AGENT_SPEC")" || { echo "ERROR: agent file not found: $AGENT_SPEC" >&2; exit "$EXIT_USER_ERROR"; }
 [[ -x "$NORMALIZER" ]] || { echo "ERROR: missing normalizer: $NORMALIZER" >&2; exit "$EXIT_USER_ERROR"; }
@@ -367,6 +387,7 @@ CALL_TYPE="$AGENT_CALL_TYPE"
 RESPONSE_MODE="$AGENT_RESPONSE_MODE"
 STRICT_SCHEMA="$AGENT_STRICT_SCHEMA"
 REQUIRED_GATE="$AGENT_REQUIRED_GATE"
+SIDE_EFFECTS="${AGENT_SIDE_EFFECTS:-workspace-write}"
 if [[ "$TIMEOUT_OVERRIDE_SET" != "true" && -n "${AGENT_TIMEOUT_SEC:-}" ]]; then
   TIMEOUT_SEC="$AGENT_TIMEOUT_SEC"
 fi
@@ -389,11 +410,36 @@ if [[ -n "${AGENT_OUTPUT_SCHEMA:-}" ]]; then
   OUTPUT_SCHEMA_RELATIVE="$(root_relative_path "$OUTPUT_SCHEMA_FILE")"
 fi
 
+FALLBACK_ROOT="$(resolve_fallback_root "$PROJECT_KEY")"
+FALLBACK_STATE_FILE="$FALLBACK_ROOT/state.md"
+FALLBACK_LOG_BASE="$FALLBACK_ROOT/logs"
+RUNTIME_ROOT_MODE="$(resolve_runtime_root_mode)"
+STATE_MODE="global-fallback"
+
+if [[ -f "$LOCAL_STATE_FILE" ]]; then
+  STATE_FILE="$LOCAL_STATE_FILE"
+  LOG_BASE="$LOCAL_LOG_BASE"
+  STATE_MODE="project-local"
+elif [[ "$DRY_RUN" == "true" || "$SIDE_EFFECTS" == "none" ]]; then
+  STATE_FILE=""
+  LOG_BASE="$FALLBACK_LOG_BASE"
+else
+  STATE_FILE="$FALLBACK_STATE_FILE"
+  LOG_BASE="$FALLBACK_LOG_BASE"
+  ensure_fallback_state
+fi
+
+LOG_ROOT="$LOG_BASE"
+WRAPPER_LOG_FILE="$LOG_BASE/wrapper-bootstrap.log"
+
 CURRENT_DEPTH="$(state_value "Current Delegation Depth")"
 LAST_GATE="$(state_value "Last Gate Passed")"
 CURRENT_PHASE="$(state_value "Current Phase")"
+CURRENT_DEPTH="${CURRENT_DEPTH:-0}"
+LAST_GATE="${LAST_GATE:-none}"
+CURRENT_PHASE="${CURRENT_PHASE:-global-fallback}"
 
-if [[ "${CURRENT_DEPTH:-0}" != "0" && "${ALLOW_RECURSION:-false}" != "true" ]]; then
+if [[ "$CURRENT_DEPTH" != "0" && "${ALLOW_RECURSION:-false}" != "true" ]]; then
   echo "ERROR: recursion blocked by state guard" >&2
   exit "$EXIT_RECURSION_BLOCKED"
 fi
@@ -490,13 +536,15 @@ cat >"$DECISION_FILE" <<EOF
   "strict_schema": $( [[ "$STRICT_SCHEMA" == "true" ]] && printf 'true' || printf 'false' ),
   "timeout_sec": $TIMEOUT_SEC,
   "required_gate": "$(json_escape "$REQUIRED_GATE")",
+  "side_effects": "$(json_escape "$SIDE_EFFECTS")",
   "output_schema": "$(json_escape "$OUTPUT_SCHEMA_RELATIVE")",
-  "state_mode": "$( [[ -f "$LOCAL_STATE_FILE" ]] && printf 'project-local' || printf 'global-fallback' )",
+  "state_mode": "$(json_escape "$STATE_MODE")",
+  "runtime_root_mode": "$(json_escape "$RUNTIME_ROOT_MODE")",
   "project_root": "$(json_escape "$PROJECT_ROOT")",
   "context_files": $(json_array_from_args "${CONTEXT_FILES_CANONICAL[@]}"),
   "prompt_hash": "$(json_escape "$PROMPT_HASH")",
   "meta_source": "$(json_escape "${AGENT_META_SOURCE:-unknown}")",
-  "last_gate_passed": "$(json_escape "${LAST_GATE:-none}")"
+  "last_gate_passed": "$(json_escape "$LAST_GATE")"
 }
 EOF
 
@@ -515,7 +563,9 @@ if [[ "$DRY_RUN" == "true" ]]; then
   "response_mode": "$(json_escape "$RESPONSE_MODE")",
   "strict_schema": $( [[ "$STRICT_SCHEMA" == "true" ]] && printf 'true' || printf 'false' ),
   "required_gate": "$(json_escape "$REQUIRED_GATE")",
-  "state_mode": "$( [[ -f "$LOCAL_STATE_FILE" ]] && printf 'project-local' || printf 'global-fallback' )",
+  "side_effects": "$(json_escape "$SIDE_EFFECTS")",
+  "state_mode": "$(json_escape "$STATE_MODE")",
+  "runtime_root_mode": "$(json_escape "$RUNTIME_ROOT_MODE")",
   "project_root": "$(json_escape "$PROJECT_ROOT")",
   "prompt_file": "$(json_escape "$PROMPT_FILE")",
   "decision_file": "$(json_escape "$DECISION_FILE")",
@@ -525,7 +575,7 @@ EOF
   exit "$EXIT_OK"
 fi
 
-if ! gate_at_least "${LAST_GATE:-none}" "$REQUIRED_GATE"; then
+if [[ "$SIDE_EFFECTS" != "none" ]] && ! gate_at_least "$LAST_GATE" "$REQUIRED_GATE"; then
   echo "ERROR: execution blocked because agent requires gate $REQUIRED_GATE but current gate is ${LAST_GATE:-none}" >&2
   exit "$EXIT_USER_ERROR"
 fi

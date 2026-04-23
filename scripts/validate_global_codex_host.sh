@@ -72,6 +72,8 @@ trap 'rm -f "$TMP_OUT"; if [[ -n "$TMP_PROJECT" ]]; then rm -rf "$TMP_PROJECT"; 
 grep -q '"status": "dry-run"' "$TMP_OUT" || { echo "ERROR: dry-run status missing" >&2; exit 1; }
 grep -q '"agent": "architect"' "$TMP_OUT" || { echo "ERROR: architect routing missing" >&2; exit 1; }
 grep -q '"state_mode": "global-fallback"' "$TMP_OUT" || { echo "ERROR: global fallback state mode missing" >&2; exit 1; }
+grep -q '"runtime_root_mode": "tmp-fallback"' "$TMP_OUT" || { echo "ERROR: tmp fallback mode missing" >&2; exit 1; }
+grep -q '"side_effects": "none"' "$TMP_OUT" || { echo "ERROR: read-only side effects metadata missing" >&2; exit 1; }
 
 if [[ "$LIVE_SMOKE" == "true" ]]; then
   "$WRAPPER" --agent frontend-designer --prompt "Briefly confirm the global fallback runtime is operational." --project-root "$PROJECT_ROOT" --execute > "$TMP_OUT"

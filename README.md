@@ -261,19 +261,30 @@ $HOME/.codex/AgentCall/scripts/global_call_cli.sh --agent architect --prompt "..
 
 - 현재 프로젝트에 `.agents/`가 있으면 project-local agent를 우선 사용
 - 없으면 `~/.codex/AgentCall/agents/`의 curated agent를 fallback으로 사용
-- project-local state/runtime이 없으면 `~/.codex/AgentCall/runtime-data/<project-key>/`를 fallback state/log root로 사용
+- project-local state/runtime이 없으면 기본적으로 `$TMPDIR/agentcall/<project-key>/`를 fallback runtime root로 사용
+- `AGENTCALL_PERSIST_GLOBAL=1`일 때만 `~/.codex/AgentCall/runtime-data/<project-key>/`를 persistent fallback root로 사용
 - 기본은 read-only delegation
+- `side-effects: none` 인 agent는 `requires-human-gate`가 있어도 execution block 대상이 아니라 read-only metadata로 처리
 
 추가로, 다른 프로젝트에서 실제 smoke 확인된 결과도 있습니다.
 
 - Claude: `--agent architect` 응답 성공
 - Gemini: `--agent frontend-designer` 응답 성공
-- `test-hello`는 `requires-human-gate: S` 때문에 smoke 용도로는 의도대로 차단됨
+- `test-hello`는 이제 read-only smoke 용도로 `requires-human-gate: none`으로 완화됨
 
 그리고 이름 변경 후에도 새 경로 기준 검증을 다시 통과했습니다.
 
 - `./scripts/validate_global_codex_host.sh` 통과
 - `./scripts/validate_global_codex_host.sh --live-smoke` 통과
+
+현재 curated global agents는 `side-effects: none` 기준으로 동작합니다.
+
+- `architect`
+- `frontend-designer`
+- `integrator`
+- `bug-reviewer`
+- `design-synthesizer`
+- `test-hello`
 
 ## Common Commands
 
@@ -312,18 +323,6 @@ strict schema가 꼭 필요할 때:
   --prompt "Return a strictly structured review." \
   --strict-schema \
   --execute
-```
-
-Codex local runtime 경로 확인:
-
-```bash
-./scripts/local_codex.sh path
-```
-
-프로젝트 로컬 Codex 로그인:
-
-```bash
-./scripts/local_codex.sh login
 ```
 
 ## Validation and Safety

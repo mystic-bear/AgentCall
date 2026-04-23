@@ -32,7 +32,8 @@ Gate resolution:
 
 - Gate rank is `none/0 < A < B < C < S`.
 - `S` means skill validation readiness; `A/B/C` are lifecycle approval stages.
-- The wrapper currently uses this single ordered scale for `requires-human-gate` checks.
+- For the global AgentCall runtime, `requires-human-gate` is enforced only for agents whose `side-effects` are not `none`.
+- Read-only curated agents should declare `side-effects: none`; in that case the gate remains metadata, not an execution block.
 
 Local pilot intent:
 

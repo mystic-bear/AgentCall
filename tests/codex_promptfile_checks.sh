@@ -20,6 +20,7 @@ PROMPT_FILE="$TMP_DIR/prompt.txt"
 ARGS_FILE="$TMP_DIR/args.txt"
 STDIN_FILE="$TMP_DIR/stdin.txt"
 OUT_FILE="$TMP_DIR/out.txt"
+ERR_FILE="$TMP_DIR/err.txt"
 FAILURES=0
 
 cleanup() {
@@ -42,31 +43,31 @@ cat > "$PROMPT_FILE" <<'EOF'
 Prompt delivered through stdin.
 EOF
 
-if PATH="$FAKE_BIN:$PATH" FAKE_CODEX_ARGS_FILE="$ARGS_FILE" FAKE_CODEX_STDIN_FILE="$STDIN_FILE" ./scripts/local_codex.sh exec --model gpt-5.4 --prompt-file "$PROMPT_FILE" > "$OUT_FILE"; then
+if PATH="$FAKE_BIN:$PATH" FAKE_CODEX_ARGS_FILE="$ARGS_FILE" FAKE_CODEX_STDIN_FILE="$STDIN_FILE" ./scripts/adapters/codex.sh "$PROMPT_FILE" 30 "$OUT_FILE" "$ERR_FILE" false gpt-5.4 ""; then
   :
 else
-  echo "FAIL local_codex prompt-file execution failed"
+  echo "FAIL codex adapter prompt-file execution failed"
   exit 1
 fi
 
 if grep -q '^exec --skip-git-repo-check --model gpt-5.4 -$' "$ARGS_FILE"; then
-  echo "OK   local_codex passes stdin sentinel to codex exec"
+  echo "OK   codex adapter passes stdin sentinel to codex exec"
 else
-  echo "FAIL local_codex did not invoke codex exec with stdin sentinel"
+  echo "FAIL codex adapter did not invoke codex exec with stdin sentinel"
   FAILURES=$((FAILURES + 1))
 fi
 
 if cmp -s "$PROMPT_FILE" "$STDIN_FILE"; then
-  echo "OK   local_codex forwards prompt-file content through stdin"
+  echo "OK   codex adapter forwards prompt-file content through stdin"
 else
-  echo "FAIL local_codex did not forward prompt-file content through stdin"
+  echo "FAIL codex adapter did not forward prompt-file content through stdin"
   FAILURES=$((FAILURES + 1))
 fi
 
-if grep -qE -- '--prompt-file "?\$PROMPT_FILE"?' "$ROOT_DIR/scripts/adapters/codex.sh"; then
-  echo "OK   codex adapter delegates prompt files without argv expansion"
+if grep -q -- 'codex exec --skip-git-repo-check' "$ROOT_DIR/scripts/adapters/codex.sh" && grep -q -- '<"$PROMPT_FILE"' "$ROOT_DIR/scripts/adapters/codex.sh"; then
+  echo "OK   codex adapter uses direct stdin prompt transport"
 else
-  echo "FAIL codex adapter still appears to inline prompt content"
+  echo "FAIL codex adapter transport pattern does not match expected stdin usage"
   FAILURES=$((FAILURES + 1))
 fi
 

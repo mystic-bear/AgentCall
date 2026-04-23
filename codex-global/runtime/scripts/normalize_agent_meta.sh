@@ -37,6 +37,17 @@ normalize_bool() {
   esac
 }
 
+validate_side_effects() {
+  local value="${1:-}"
+  case "$value" in
+    none|workspace-write|external-write) printf '%s' "$value" ;;
+    *)
+      echo "ERROR: invalid side-effects value: $value" >&2
+      exit 1
+      ;;
+  esac
+}
+
 default_call_type_for_role() {
   local role="${1:-}"
   case "$role" in
@@ -77,6 +88,14 @@ default_gate_for_role() {
   esac
 }
 
+default_side_effects_for_role() {
+  local role="${1:-}"
+  case "$role" in
+    architect|frontend-designer|bug-reviewer|integrator|design-synthesizer|test-hello) printf 'none' ;;
+    *) printf 'workspace-write' ;;
+  esac
+}
+
 source_role="frontmatter"
 source_cli="frontmatter"
 source_model="frontmatter"
@@ -86,6 +105,7 @@ source_call_type="frontmatter"
 source_response_mode="frontmatter"
 source_timeout="frontmatter"
 source_gate="frontmatter"
+source_side_effects="frontmatter"
 
 ROLE="$(fm_value "role" || true)"
 if [[ -z "$ROLE" ]]; then
@@ -177,6 +197,13 @@ if [[ -z "$REQUIRED_GATE" ]]; then
   source_gate="role-default"
 fi
 
+SIDE_EFFECTS="$(fm_value "side-effects" || true)"
+if [[ -z "$SIDE_EFFECTS" ]]; then
+  SIDE_EFFECTS="$(default_side_effects_for_role "$ROLE")"
+  source_side_effects="role-default"
+fi
+SIDE_EFFECTS="$(validate_side_effects "$SIDE_EFFECTS")"
+
 printf 'AGENT_RUN_AGENT=%q\n' "$RUN_AGENT"
 printf 'AGENT_ROLE=%q\n' "$ROLE"
 printf 'AGENT_MODEL=%q\n' "$MODEL"
@@ -189,4 +216,5 @@ printf 'AGENT_MAX_CONTEXT_FILES=%q\n' "$MAX_CONTEXT_FILES"
 printf 'AGENT_MAX_CONTEXT_BYTES=%q\n' "$MAX_CONTEXT_BYTES"
 printf 'AGENT_ALLOW_RECURSION=%q\n' "$ALLOW_RECURSION"
 printf 'AGENT_REQUIRED_GATE=%q\n' "$REQUIRED_GATE"
-printf 'AGENT_META_SOURCE=%q\n' "role=$source_role,run-agent=$source_cli,model=$source_model,output-schema=$source_schema,strict=$source_strict,call-type=$source_call_type,response-mode=$source_response_mode,timeout=$source_timeout,gate=$source_gate"
+printf 'AGENT_SIDE_EFFECTS=%q\n' "$SIDE_EFFECTS"
+printf 'AGENT_META_SOURCE=%q\n' "role=$source_role,run-agent=$source_cli,model=$source_model,output-schema=$source_schema,strict=$source_strict,call-type=$source_call_type,response-mode=$source_response_mode,timeout=$source_timeout,gate=$source_gate,side-effects=$source_side_effects"
